@@ -119,13 +119,14 @@ test('photo saves directly: the WhatsApp message with a payment thumbnail; uncle
   await page.getByRole('link', { name: 'View' }).click();
   await expect(page.getByText('Paid', { exact: true }).first()).toBeVisible();
 
-  // unreadable digit in the phone → nothing saved, form is filled for review
+  // unreadable digit in the phone → nothing saved as a sale; it waits in the Inbox instead of being lost
   await page.goto('/#/add');
   await page.locator('input[type=file]').setInputFiles({ name: 's.png', mimeType: 'image/png', buffer: PNG });
-  await expect(page.getByText(/Phone 99138\?3737|not a valid mobile/)).toBeVisible();
-  await expect(page.getByText(/✓ Added/)).toHaveCount(0);
+  await expect(page.getByText(/1 in Inbox/).first()).toBeVisible();
   await page.goto('/#/sales');
   await expect(page.getByText('Ravi')).toHaveCount(0);
+  await page.goto('/#/inbox');
+  await expect(page.getByText('No valid phone number in the message')).toBeVisible();
 });
 
 test('merge, screenshot, gate, expenses, reports/CSV, night price, customers, audit', async ({ page }) => {
@@ -240,4 +241,62 @@ test('punch queue: fields copy one by one, ticket label, done/next/undo; prices 
   await page.goto('/#/');
   await page.getByRole('button', { name: 'They’re right' }).click();
   await expect(page.getByText('Check your prices and nights.')).toHaveCount(0);
+});
+
+
+const paste = (page: import('@playwright/test').Page, text: string) =>
+  page.locator('#root textarea').first().evaluate((el, t) => {
+    const dt = new DataTransfer(); dt.setData('text', t);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, text);
+
+test('fully automatic: paste adds sales with payments, flags odd ones, parks unusable ones in the Inbox', async ({ page }) => {
+  await page.goto('/#/add');
+  // two real messages pasted at once (Niyati unpaid, Vanshika with split payments), one with no phone
+  await paste(page, 'Name ; niyati patel\nPass : 2 solo\nNo : 9913803737\nDate : 16th october Friday\n\nName : vanshika banodia\nPass : 5 solo\nNo : +919313585913\nDate : 16th october Friday\n2600 + 650\n\nName : No Phone\nPass : 1 couple\nDate : 16 oct');
+  await expect(page.getByText(/Added 2 sales · 1 in Inbox/).first()).toBeVisible();
+  await expect(page.getByText(/✓ Added DV-0001 · Niyati Patel · 2 Solo · 16 Oct, Fri · ₹1,300 · unpaid/)).toBeVisible();
+  await expect(page.getByText(/✓ Added DV-0002 · Vanshika Banodia · 5 Solo · 16 Oct, Fri · ₹3,250 · paid/)).toBeVisible();
+
+  // a payment card for Niyati's ₹1,300 attaches by itself
+  await paste(page, '₹1,300\nPaid to Bhanderi Raj\n30 Sep 2026, 1:06 pm\nUPI transaction ID 627325985997');
+  await expect(page.getByText(/payment ₹1300 recorded/).first()).toBeVisible();
+  // the same card again is ignored
+  await paste(page, '₹1,300\nPaid to Bhanderi Raj\n30 Sep 2026, 1:06 pm\nUPI transaction ID 627325985997');
+  await expect(page.getByText(/Nothing to add|already added/).first()).toBeVisible();
+
+  // a message with no date is added on the next night and marked Check
+  await paste(page, 'Name : Ravi\nPass : 1 couple\nNo : 9000000001');
+  await expect(page.getByText(/night was assumed/).first()).toBeVisible();
+
+  await page.goto('/#/');
+  await expect(page.getByText(/1 message the app could not add/)).toBeVisible();
+  await expect(page.getByText(/1 sale added automatically with something to check/)).toBeVisible();
+  await page.getByRole('link', { name: /review/ }).click();
+  await page.getByText('Ravi').first().click();
+  await expect(page.getByText('Added automatically — please check')).toBeVisible();
+  await page.getByRole('button', { name: 'Looks right' }).click();
+  await expect(page.getByText('Added automatically — please check')).toHaveCount(0);
+
+  // fix the parked message from the Inbox
+  await page.goto('/#/inbox');
+  await page.getByRole('button', { name: 'Fix and add' }).click();
+  await page.locator('#phone, input[placeholder="10-digit mobile"]').first().fill('9000000077');
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect(page.getByText(/Saved DV-/)).toBeVisible();
+  await page.goto('/#/inbox');
+  await expect(page.getByText('Nothing waiting for you')).toBeVisible();
+});
+
+test('turning automatic adding off makes paste open the form again', async ({ page }) => {
+  await page.goto('/#/more/auto');
+  await page.getByRole('button', { name: /^○ Off/ }).click();
+  await page.goto('/#/add');
+  await paste(page, 'Name ; niyati patel\nPass : 2 solo\nNo : 9913803737\nDate : 16th october Friday');   // the browser's own paste is left alone
+  await expect(page.getByText(/✓ Added/)).toHaveCount(0);
+  await page.getByPlaceholder(/Name :/).fill('Name ; niyati patel\nPass : 2 solo\nNo : 9913803737\nDate : 16th october Friday');
+  await expect(page.locator('input[placeholder="10-digit mobile"]')).toHaveValue('9913803737');
+  await expect(page.getByText(/✓ Added/)).toHaveCount(0);
+  await page.goto('/#/sales');
+  await expect(page.getByText('Niyati Patel')).toHaveCount(0);
 });

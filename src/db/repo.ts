@@ -3,7 +3,7 @@ import { db } from './schema';
 import { computePunchState, computeSeats, computeTotal, netPaid } from '../domain/status';
 import { normalizePhone } from '../domain/phone';
 import { priceFor } from '../domain/pricing';
-import type { Channel, Customer, Expense, Payment, Sale, SaleLine } from '../domain/types';
+import type { Channel, Customer, Expense, InboxItem, Payment, Sale, SaleLine } from '../domain/types';
 
 export class DuplicateUtrError extends Error {
   constructor(public utr: string, public saleId: string) { super(`UTR ${utr} already recorded`); }
@@ -49,7 +49,7 @@ export interface NewSale {
   eventId: string; name?: string; phone: string;
   lines: { passTypeId: string; qty: number; unitPrice?: number }[];
   discount?: number; channel?: Channel; notes?: string; sourceText?: string; sourceHash?: string;
-  payments?: NewPayment[];
+  payments?: NewPayment[]; needsCheck?: string[];
 }
 
 function checkPayment(p: NewPayment) {
@@ -108,7 +108,7 @@ export async function createSale(input: NewSale): Promise<Sale> {
       id: ulid(), refNo: `DV-${String(counter).padStart(4, '0')}`, eventId: input.eventId, customerId: cust.id,
       lines, discount, total, seats: computeSeats(lines), channel: input.channel ?? 'whatsapp',
       punchState: computePunchState(lines), notes: input.notes, sourceText: input.sourceText, sourceHash: input.sourceHash,
-      createdAt: t, updatedAt: t,
+      createdAt: t, updatedAt: t, ...(input.needsCheck?.length ? { needsCheck: input.needsCheck } : {}),
     };
     await db.sales.add(sale);
     await audit('sale', sale.id, 'create', undefined, sale);
@@ -364,5 +364,20 @@ export function setLineTicket(saleId: string, index: number, ticket: string) {
     const lines = s.lines.map((l, i) => (i === index ? { ...l, ticketSnap: ticket.trim() || undefined } : l));
     await db.sales.update(saleId, { lines, updatedAt: now() });
     await audit('sale', saleId, 'update', { ticket: s.lines[index]!.ticketSnap }, { ticket: ticket.trim() });
+  });
+}
+
+/** Messages the app could not add by itself; they wait for the organiser. */
+export async function addInbox(text: string, reason: string): Promise<InboxItem> {
+  const row: InboxItem = { id: ulid(), text, reason, createdAt: now() };
+  await db.inbox.add(row); return row;
+}
+export const removeInbox = (id: string) => db.inbox.update(id, { deletedAt: now() });
+
+/** The organiser looked at an automatically added sale and it is fine. */
+export function clearNeedsCheck(saleId: string) {
+  return db.transaction('rw', [db.sales, db.auditLog], async () => {
+    await db.sales.update(saleId, { needsCheck: undefined, updatedAt: now() });
+    await audit('sale', saleId, 'checked');
   });
 }

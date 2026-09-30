@@ -10,6 +10,7 @@ import { AddSale } from '../screens/AddSale';
 import { SaleDetail } from '../screens/SaleDetail';
 import { Money } from '../screens/Money';
 import { Punch } from '../screens/Punch';
+import { Inbox } from '../screens/Inbox';
 import { More } from '../screens/More';
 
 const tabs = [['/', 'Home', '⌂'], ['/sales', 'Sales', '☰'], ['/add', 'Add', '＋'], ['/money', 'Money', '₹'], ['/more', 'More', '⋯']] as const;
@@ -37,6 +38,7 @@ export function App() {
           <Route path="/add" element={<AddSale />} />
           <Route path="/sale/:id" element={<SaleDetail />} />
           <Route path="/punch" element={<Punch />} />
+          <Route path="/inbox" element={<Inbox />} />
           <Route path="/money" element={<Money />} />
           <Route path="/more/*" element={<More />} />
           <Route path="*" element={<Home />} />

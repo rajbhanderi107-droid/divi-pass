@@ -16,7 +16,7 @@ export type PunchState = 'none' | 'partial' | 'done';
 export interface Sale extends Base {
   refNo: string; eventId: string; customerId: string; lines: SaleLine[]; discount: number;
   total: number; seats: number; channel: Channel; punchState: PunchState; notes?: string;
-  sourceText?: string; sourceHash?: string; cancelledAt?: number; entered?: number;
+  sourceText?: string; sourceHash?: string; cancelledAt?: number; entered?: number; needsCheck?: string[];
 }
 export interface Payment extends Base {
   saleId: string; kind: 'receipt' | 'refund'; amount: number; method: 'upi' | 'cash' | 'other';
@@ -27,3 +27,4 @@ export interface AuditRow { seq?: number; at: number; entity: string; entityId: 
 export interface Setting { key: string; value: unknown }
 export interface Expense extends Base { eventId: string; label: string; amount: number; paidAt: number; receiverId?: string }
 export interface Attachment { id: string; paymentId: string; saleId: string; mime: string; bytes: number; blob: Blob; createdAt: number; deletedAt?: number }
+export interface InboxItem { id: string; text: string; reason: string; createdAt: number; deletedAt?: number }

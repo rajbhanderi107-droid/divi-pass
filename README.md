@@ -19,6 +19,14 @@ Works on your phone like an app. Data stays on your phone (no login, no server).
 - **Prices**: change the price for one sale on the Add screen, save it as the default, or set a different price for a single night (More → Nights → Prices).
 - Attach a payment **screenshot** to a payment (kept on the phone, not in backup files). **Change history** shows every edit.
 
+## Automatic adding (on by default)
+Paste a WhatsApp message (or several at once) into the Add box, tap **Paste**, or add from a photo, and the sales are saved for you with no review step.
+- Payments in the text are recorded; a payment card photo attaches itself to the one unpaid sale of that amount.
+- If something looks off (no date, weekday mismatch, price differs…) the sale is still added and marked **Check**; Home shows how many.
+- If the app cannot add it safely (no phone number, unclear pass, payment with no single matching sale) it goes to the **Inbox**; nothing is lost. *Fix and add* opens it in the form.
+- Repeats (same message, same UTR, same buyer and amount minutes apart) are ignored. Every automatic sale has Undo.
+- More → Automatic adding: *Fully automatic*, *Only when everything is clear*, or *Off*. Typing in the box never auto-adds.
+
 ## Punch in Showmates
 Home → **Punch in Showmates** (or More): shows the next line to punch with every Showmates field (Date, Ticket, Quantity, Manual amount, Buyer name, Phone) and a Copy button on each, an **Open Showmates Punch** button, then **Done — punched** moves to the next. The ticket wording can be set per pass (More → Pass types → “Ticket name in Showmates”) or changed on the spot. Showmates has no way for other apps to fill their form, so this makes it one tap per field; it cannot punch for you.
 

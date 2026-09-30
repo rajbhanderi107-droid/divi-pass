@@ -10,7 +10,7 @@ export const statusTone = (s: SaleView['status']) => (s === 'paid' ? 'green' : s
 export const statusLabel: Record<SaleView['status'], string> = { unpaid: 'Unpaid', partial: 'Partial', paid: 'Paid', overpaid: 'Overpaid', refundDue: 'Refund due', cancelled: 'Cancelled' };
 export const linesText = (s: SaleView['sale']) => s.lines.map((l) => `${l.qty} ${l.nameSnap}`).join(' + ');
 
-const FILTERS = [['tonight', 'Tonight'], ['unpaid', 'Unpaid'], ['unpunched', 'Unpunched'], ['all', 'All']] as const;
+const FILTERS = [['tonight', 'Tonight'], ['unpaid', 'Unpaid'], ['unpunched', 'Unpunched'], ['check', 'To check'], ['all', 'All']] as const;
 
 export function Sales() {
   const rows = useSalesView(); const [sp, setSp] = useSearchParams();
@@ -25,6 +25,7 @@ export function Sales() {
       if (night && r.sale.eventId !== night) return false;
       if (f === 'tonight' && r.event?.date !== today) return false;
       if (f === 'unpaid' && !(r.due > 0)) return false;
+      if (f === 'check' && !(r.sale.needsCheck?.length)) return false;
       if (f === 'unpunched' && (r.sale.cancelledAt || r.sale.punchState === 'done')) return false;
       if (!ql) return true;
       return (r.customer?.nameLower ?? '').includes(ql) || r.sale.refNo.toLowerCase().includes(ql) ||
@@ -54,7 +55,7 @@ export function Sales() {
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="font-bold">{formatINR(r.sale.total)}</div>
-                  <Pill tone={statusTone(r.status)}>{statusLabel[r.status]}{r.status === 'partial' ? ` · ${formatINR(r.due)} due` : ''}</Pill>
+                  {r.sale.needsCheck?.length ? <span className="mr-1"><Pill tone="amber">Check</Pill></span> : null}<Pill tone={statusTone(r.status)}>{statusLabel[r.status]}{r.status === 'partial' ? ` · ${formatINR(r.due)} due` : ''}</Pill>
                 </div>
               </Card>
             </Link>

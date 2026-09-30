@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useEvents, usePassTypes, useSalesView, useSetting } from '../db/queries';
+import { useEvents, useInbox, usePassTypes, useSalesView, useSetting } from '../db/queries';
 import { setSetting } from '../db/repo';
 import { Card, Empty } from '../components/ui';
 import { Leaves } from '../components/Leaves';
@@ -16,17 +16,18 @@ export function Home() {
   const since = useSetting<number>('salesSinceBackup', 0);
   const persisted = useSetting<boolean | null>('storagePersisted', null);
   const pricesOk = useSetting<boolean>('pricesConfirmed', false);
-  const passTypes = usePassTypes();
+  const passTypes = usePassTypes(); const inbox = useInbox();
   const [today] = useState(() => istDate());
 
   useEffect(() => {
     navigator.storage?.persisted?.().then((p) => setSetting('storagePersisted', p)).catch(() => {});
   }, []);
 
-  if (!sales || !events) return null;
+  if (!sales || !events || !inbox) return null;
   const active = sales.filter((s) => !s.sale.cancelledAt);
   const dues = active.reduce((a, s) => a + s.due, 0);
   const unpunched = active.filter((s) => s.sale.punchState !== 'done').length;
+  const toCheck = sales.filter((x) => x.sale.needsCheck?.length && !x.sale.cancelledAt).length;
   const linesToPunch = active.reduce((a, s) => a + s.sale.lines.filter((l) => !l.punchedAt).length, 0);
   const collected = sales.reduce((a, s) => a + s.payments.reduce((x, p) => x + (p.kind === 'receipt' ? p.amount : -p.amount), 0), 0);
   const tonight = events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0];
@@ -49,6 +50,13 @@ export function Home() {
         </div>
         <Link to="/add" className="btn-sand relative mt-4 inline-block rounded-full px-6 py-3 font-extrabold">＋ Add a sale</Link>
       </div>
+      {(inbox.length > 0 || toCheck > 0) && (
+        <Card tone="bark" className="space-y-2">
+          <div className="font-extrabold">Needs you</div>
+          {inbox.length > 0 && <Link to="/inbox" className="block text-sm">📥 {inbox.length} message{inbox.length === 1 ? '' : 's'} the app could not add — <b className="underline">open Inbox</b></Link>}
+          {toCheck > 0 && <Link to="/sales?f=check" className="block text-sm">⚠ {toCheck} sale{toCheck === 1 ? '' : 's'} added automatically with something to check — <b className="underline">review</b></Link>}
+        </Card>
+      )}
       {!pricesOk && passTypes && (
         <Card className="space-y-2 border-sand/40 text-sm">
           <div><b>Check your prices and nights.</b> They start as guesses ({passTypes.map((p) => `${p.name} ${formatINR(p.price)}`).join(' · ')}). Prices change a lot, so set them your way — you can also change the price on any sale from the Add screen.</div>

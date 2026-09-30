@@ -28,3 +28,4 @@ export const useReceivers = () => useLiveQuery(async () => live(await db.receive
 export function useSetting<T>(key: string, fallback: T): T {
   return (useLiveQuery(async () => (await db.settings.get(key))?.value as T | undefined, [key]) ?? fallback) as T;
 }
+export const useInbox = () => useLiveQuery(async () => (await db.inbox.orderBy('createdAt').toArray()).filter((x) => !x.deletedAt), []);

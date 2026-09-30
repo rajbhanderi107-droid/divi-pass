@@ -32,6 +32,7 @@ export function More() {
       <Route path="reports" element={<Reports />} />
       <Route path="gate" element={<Gate />} />
       <Route path="audit" element={<Audit />} />
+      <Route path="auto" element={<AutoSetup />} />
       <Route path="photo" element={<PhotoSetup />} />
       <Route path="health" element={<Health />} />
     </Routes>
@@ -39,11 +40,11 @@ export function More() {
 }
 
 function Menu() {
-  const items = [['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
+  const items = [['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
-      {items.map(([to, l]) => <Link key={to} to={to === 'punch' ? '/punch' : to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
+      {items.map(([to, l]) => <Link key={to} to={to === 'punch' ? '/punch' : to === 'inbox' ? '/inbox' : to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
     </div>
   );
 }
@@ -221,7 +222,6 @@ function Health() {
 function PhotoSetup() {
   const toast = useToast();
   const url0 = useSetting<string>('photoReaderUrl', ''); const tok0 = useSetting<string>('photoReaderToken', '');
-  const auto = useSetting<boolean>('autoSavePhotos', true);
   const [url, setUrl] = useState<string>(); const [token, setToken] = useState<string>(); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
   const u = url ?? url0; const t = token ?? tok0;
   async function save() {
@@ -239,13 +239,28 @@ function PhotoSetup() {
       <p className="text-sm text-zinc-400">Lets you tap <b>Add from photo</b> on the Add screen and pick a WhatsApp or payment screenshot. A small server reads it with Claude and the app fills the form. You still check it and tap Save. Setup steps are in <code>server/README.md</code> in the repo.</p>
       <Field label="Reader link"><input className={inputCls} inputMode="url" autoCapitalize="none" placeholder="https://divi-pass-photo-reader.….workers.dev" value={u} onChange={(e) => setUrl(e.target.value)} /></Field>
       <Field label="Access code"><input className={inputCls} type="password" autoCapitalize="none" value={t} onChange={(e) => setToken(e.target.value)} /></Field>
-      <Card className="flex items-center justify-between gap-3">
-        <div><div className="font-semibold">Save automatically</div><div className="text-sm text-zinc-400">When a photo is clear (phone, passes and night all read), add the sale right away. Anything unclear opens the form for you to check.</div></div>
-        <input type="checkbox" aria-label="Save automatically" className="h-7 w-7 shrink-0 accent-sand" checked={auto} onChange={(e) => setSetting('autoSavePhotos', e.target.checked)} />
-      </Card>
       {msg && <p role="status" className="text-sm text-zinc-300">{msg}</p>}
       <div className="grid grid-cols-2 gap-2"><Btn kind="ghost" disabled={busy || !u || !t} onClick={test}>Test connection</Btn><Btn onClick={save}>Save</Btn></div>
       <p className="text-xs text-zinc-500">Photos are sent only to your own reader and Claude, and are not stored. The access code stays on this phone and is never included in backups.</p>
+    </div>
+  );
+}
+
+function AutoSetup() {
+  const mode = useSetting<string>('autoAdd', 'always');
+  const opts: [string, string, string][] = [
+    ['always', 'Fully automatic (recommended)', 'Pasted messages and photos are added straight away, several at a time. Sales with something odd (no date, price difference…) are added and marked “Check”. Messages with no phone number or an unclear pass go to your Inbox. Payment cards attach themselves to the one unpaid sale of that amount. Repeats are ignored.'],
+    ['clear', 'Only when everything is clear', 'Adds only a single sale whose phone, passes and night are all read cleanly. Otherwise the form opens for you.'],
+    ['off', 'Off', 'Nothing is added by itself. The form always opens for you to check.'],
+  ];
+  return (
+    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Automatic adding</h1>
+      <p className="text-sm text-zinc-400">Applies when you paste a message into the Add screen (paste, not typing), use the Paste button, or add from a photo. Every automatic sale can be undone.</p>
+      {opts.map(([k, t, d]) => (
+        <button key={k} onClick={() => setSetting('autoAdd', k)} className={`w-full text-left ${mode === k ? '' : 'opacity-80'}`} aria-pressed={mode === k}>
+          <Card tone={mode === k ? 'sand' : undefined} className="space-y-1"><div className="font-extrabold">{mode === k ? '● ' : '○ '}{t}</div><div className="text-sm opacity-90">{d}</div></Card>
+        </button>
+      ))}
     </div>
   );
 }

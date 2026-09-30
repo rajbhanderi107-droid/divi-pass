@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/schema';
+import { Link, useLocation } from 'react-router-dom';
+import { ingestText, type AutoMode } from '../lib/ingest';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
 import { preparePhoto, readPhotoText, ReaderError } from '../lib/photo';
-import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, savePassType, setSetting, ValidationError } from '../db/repo';
+import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, removeInbox, savePassType, setSetting, ValidationError } from '../db/repo';
 import { parseMessage, type Draft } from '../parser';
 import { planFromDraft, type DraftPlan } from '../domain/photoDraft';
 import { Btn, Card, Chip, Field, inputCls, useToast } from '../components/ui';
@@ -40,11 +43,20 @@ export function AddSale() {
   const [error, setError] = useState(''); const [dup, setDup] = useState(''); const [saving, setSaving] = useState(false);
   const readerUrl = useSetting<string>('photoReaderUrl', ''); const readerToken = useSetting<string>('photoReaderToken', '');
   const [thumbs, setThumbs] = useState<string[]>([]); const [photoBusy, setPhotoBusy] = useState(false); const [photoErr, setPhotoErr] = useState('');
-  const autoSave = useSetting<boolean>('autoSavePhotos', true);
-  const [last, setLast] = useState<{ id: string; text: string } | null>(null);
+  // undefined until the setting has loaded, so a very early paste never ignores an 'Off' choice
+  const modeLoaded = useLiveQuery(async () => ((await db.settings.get('autoAdd'))?.value as string | undefined) ?? 'always', []);
+  const mode = (modeLoaded ?? 'off') as AutoMode;
+  const [lastList, setLastList] = useState<{ id: string; text: string; flags: string[] }[]>([]);
+  const [note, setNote] = useState('');
+  const inboxId = useRef<string | null>(null); const loc = useLocation();
   const fileInput = useRef<HTMLInputElement>(null);
   const inited = useRef(false);
 
+  useEffect(() => {
+    const st = loc.state as { inbox?: { id: string; text: string } } | null;
+    if (st?.inbox && passTypes && events && !inboxId.current) { inboxId.current = st.inbox.id; onPaste(st.inbox.text); window.history.replaceState({}, ''); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passTypes, events]);
   useEffect(() => {
     if (inited.current || !events?.length) return;
     inited.current = true;
@@ -68,7 +80,7 @@ export function AddSale() {
 
   function reset() {
     setText(''); setDrafts([]); setIdx(0); setQty({}); setName(''); setPhone(''); setManual(''); setPriceOv({}); setPays([]); setWarns([]);
-    setSource({}); setError(''); setDup(''); setThumbs((t) => { t.forEach(URL.revokeObjectURL); return []; }); setPhotoErr('');
+    setSource({}); setError(''); setDup(''); setNote(''); setThumbs((t) => { t.forEach(URL.revokeObjectURL); return []; }); setPhotoErr('');
   }
 
   const planOf = (d: Draft, fromPhoto: boolean) => planFromDraft(d, { passTypes: passTypes ?? [], events: events ?? [], receivers: receivers ?? [], lastReceiverId: lastReceiver, fromPhoto });
@@ -91,6 +103,33 @@ export function AddSale() {
     setDrafts(ds); setIdx(0);
     if (ds[0]) applyDraft(ds[0]); else { setWarns(['Nothing recognised — fill the form below.']); }
   }
+  /** Adds records straight from text. Returns true when it handled the text (nothing more for the user to do here). */
+  async function runIngest(all: string, fromPhoto: boolean): Promise<boolean> {
+    // read everything fresh from the database so an early paste/photo never races the screen's own loading
+    const live = <T extends { deletedAt?: number }>(rows: T[]) => rows.filter((x) => !x.deletedAt);
+    const [pts, evs, rcs, modeRow, seasonRow, lastRcv] = await Promise.all([
+      db.passTypes.orderBy('sortOrder').toArray(), db.events.orderBy('date').toArray(), db.receivers.toArray(),
+      db.settings.get('autoAdd'), db.settings.get('season'), db.settings.get('lastReceiver'),
+    ]);
+    const m = ((modeRow?.value as AutoMode | undefined) ?? 'always');
+    if (m === 'off') return false;
+    const r = await ingestText(all, { passTypes: live(pts), events: live(evs), receivers: live(rcs), lastReceiverId: (lastRcv?.value as string) ?? '', season: seasonRow?.value as { from: string; to: string } | undefined, mode: m, fromPhoto });
+    if (r.fallbackToForm) return false;
+    reset();
+    const bits: string[] = [];
+    if (r.added.length) bits.push(`Added ${r.added.length} sale${r.added.length === 1 ? '' : 's'}`);
+    if (r.paymentsAdded.length) bits.push(`payment ${r.paymentsAdded.join(', ')} recorded`);
+    if (r.duplicates.length) bits.push(`${r.duplicates.length} already added`);
+    if (r.inbox.length) bits.push(`${r.inbox.length} in Inbox`);
+    setNote(bits.join(' · '));
+    setLastList((old) => [...r.added.map((a) => ({ id: a.sale.id, text: `${a.sale.refNo} · ${a.summary}`, flags: a.flags })), ...old].slice(0, 5));
+    if (r.added.length) {
+      navigator.storage?.persist?.().then((ok) => setSetting('storagePersisted', ok)).catch(() => {});
+      const one = r.added.length === 1 ? r.added[0]!.sale : null;
+      toast(bits.join(' · '), one ? { label: 'Undo', run: () => { deleteSale(one.id); setLastList((o) => o.filter((x) => x.id !== one.id)); } } : undefined);
+    } else toast(bits.join(' · ') || 'Nothing to add');
+    return true;
+  }
   async function onPhotos(files: FileList | null) {
     if (!files?.length) return;
     setPhotoErr('');
@@ -106,30 +145,13 @@ export function AddSale() {
       setThumbs((old) => [...old, ...previews]);
       if (!texts.length) { setPhotoErr('Nothing readable in that photo. Try a clearer screenshot or type it in.'); return; }
       const all = [text.trim(), ...texts].filter(Boolean).join('\n\n');
-      onPaste(all);
-      const ds = parseMessage(all, { season, prices: { solo: passTypes?.find((p) => p.kind === 'solo')?.price ?? 0, couple: passTypes?.find((p) => p.kind === 'couple')?.price ?? 0 } });
-      if (autoSave && ds.length === 1) {
-        const d = ds[0]!; const plan = planOf(d, true);
-        if (plan.autoOk) {
-          applyPlan(d, plan);
-          const ph = normalizePhone(plan.phone);
-          const lines = (passTypes ?? []).filter((x) => (plan.qty[x.id] ?? 0) > 0).map((x) => ({ passTypeId: x.id, qty: plan.qty[x.id]!, unitPrice: priceFor(x, events?.find((e) => e.id === plan.eventId)) }));
-          const sale = ph ? await persist({ ph, lines, discount: 0, payments: plan.pays.map((x) => ({ amount: x.amount, method: x.utr ? ('upi' as const) : x.method, utr: x.utr || undefined, receiverId: x.receiverId || undefined, paidAt: x.paidAt })), eventId: plan.eventId!, name: plan.name, hash: d.sourceHash, srcText: d.sourceText, total: plan.base }) : null;
-          if (sale) {
-            const night = events?.find((e) => e.id === sale.eventId);
-            const paid = plan.pays.reduce((a, x) => a + x.amount, 0);
-            const summary = `${plan.name || '+91 ' + plan.phone} · ${sale.lines.map((l) => `${l.qty} ${l.nameSnap}`).join(' + ')} · ${night ? formatDateLabel(night.date) : ''} · ${formatINR(sale.total)} · ${paid >= sale.total ? 'paid' : paid > 0 ? `${formatINR(sale.total - paid)} due` : 'unpaid'}`;
-            toast(`Added ${sale.refNo}`, { label: 'Undo', run: () => { deleteSale(sale.id); setLast(null); } });
-            reset(); setLast({ id: sale.id, text: `${sale.refNo} · ${summary}` });
-          }
-        }
-      }
+      if (!(await runIngest(all, true))) onPaste(all);
     } catch (e) {
       setPhotoErr(e instanceof ReaderError ? e.message : 'Could not read that photo.');
     } finally { setPhotoBusy(false); if (fileInput.current) fileInput.current.value = ''; }
   }
   async function pasteFromClipboard() {
-    try { onPaste(await navigator.clipboard.readText()); } catch { toast('Clipboard blocked — paste into the box instead'); }
+    try { const t = await navigator.clipboard.readText(); if (!(await runIngest(t, false))) onPaste(t); } catch { toast('Clipboard blocked — paste into the box instead'); }
   }
 
   const setStep = (id: string, d: number) => setQty((q) => ({ ...q, [id]: Math.max(0, (q[id] ?? 0) + d) }));
@@ -180,6 +202,7 @@ export function AddSale() {
     if (new Set(payments.map((p) => p.utr).filter(Boolean)).size < payments.filter((p) => p.utr).length) { setError('Same UTR entered twice.'); return; }
     const sale = await persist({ ph, lines, discount: base - total, payments, eventId, name, hash: source.hash, srcText: source.text, total }, force);
     if (!sale) return;
+    if (inboxId.current) { removeInbox(inboxId.current); inboxId.current = null; }
     toast(`Saved ${sale.refNo} · ${formatINR(sale.total)}`, { label: 'Undo', run: () => { deleteSale(sale.id); } });
     const next = drafts[idx + 1];
     if (next) { setIdx(idx + 1); applyDraft(next); } else { reset(); }
@@ -190,15 +213,20 @@ export function AddSale() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Add sale</h1>
-      {last && (
-        <Card className="flex items-center justify-between gap-2 border-sand/50 text-sm">
-          <span>✓ Added {last.text}</span>
-          <span className="flex shrink-0 gap-3"><Link to={`/sale/${last.id}`} className="font-semibold text-sand">View</Link><button className="text-red-400" onClick={() => { deleteSale(last.id); setLast(null); }}>Undo</button></span>
+      {note && <p role="status" className="text-sm text-zinc-300">{note}</p>}
+      {lastList.map((l) => (
+        <Card key={l.id} tone={l.flags.length ? 'bark' : undefined} className="space-y-1 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span>✓ Added {l.text}</span>
+            <span className="flex shrink-0 gap-3"><Link to={`/sale/${l.id}`} className="font-semibold text-sand">View</Link><button className="text-red-300" onClick={() => { deleteSale(l.id); setLastList((o) => o.filter((x) => x.id !== l.id)); }}>Undo</button></span>
+          </div>
+          {l.flags.map((f) => <div key={f} className="text-amber-200">⚠ {f}</div>)}
         </Card>
-      )}
+      ))}
       <Card className="space-y-2">
         <Field label="Paste WhatsApp message">
-          <textarea className={`${inputCls} py-2`} rows={3} value={text} placeholder={'Name : …\nPass : 2 solo\nNo : 99…\nDate : 16th october'} onChange={(e) => onPaste(e.target.value)} />
+          <textarea className={`${inputCls} py-2`} rows={3} value={text} placeholder={'Name : …\nPass : 2 solo\nNo : 99…\nDate : 16th october'} onChange={(e) => onPaste(e.target.value)}
+            onPaste={(e) => { const t = e.clipboardData.getData('text'); if (mode !== 'off' && !text.trim() && t.trim().length > 15) { e.preventDefault(); runIngest(t, false).then((h) => { if (!h) onPaste(t); }); } }} />
         </Field>
         <input ref={fileInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onPhotos(e.target.files)} />
         <div className="flex gap-2">

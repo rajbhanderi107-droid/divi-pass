@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Attachment, AuditRow, Customer, Expense, EventNight, PassType, Payment, Receiver, Sale, Setting } from '../domain/types';
+import type { Attachment, AuditRow, Customer, Expense, InboxItem, EventNight, PassType, Payment, Receiver, Sale, Setting } from '../domain/types';
 
 export class DiviDB extends Dexie {
   events!: Table<EventNight, string>;
@@ -11,6 +11,7 @@ export class DiviDB extends Dexie {
   auditLog!: Table<AuditRow, number>;
   expenses!: Table<Expense, string>;
   attachments!: Table<Attachment, string>;
+  inbox!: Table<InboxItem, string>;
   settings!: Table<Setting, string>;
 
   constructor(name = 'divi-pass') {
@@ -29,6 +30,7 @@ export class DiviDB extends Dexie {
       expenses: 'id, eventId, paidAt, updatedAt, deletedAt',
       attachments: 'id, paymentId, saleId, createdAt, deletedAt',
     });
+    this.version(3).stores({ inbox: 'id, createdAt, deletedAt' });
   }
 }
 

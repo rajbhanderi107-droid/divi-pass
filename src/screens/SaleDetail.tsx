@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addPayment, attachToPayment, cancelSale, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, mergeSales, restorePayment, restoreSale, setLinePunched, updateSale, ValidationError } from '../db/repo';
+import { addPayment, attachToPayment, cancelSale, clearNeedsCheck, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, mergeSales, restorePayment, restoreSale, setLinePunched, updateSale, ValidationError } from '../db/repo';
 import { useEvents, useReceivers, useSalesView } from '../db/queries';
 import { compressForStorage } from '../lib/photo';
 import { Btn, Card, Chip, Empty, Field, Pill, Sheet, copyText, inputCls, useToast } from '../components/ui';
@@ -46,6 +46,13 @@ export function SaleDetail() {
         <Pill tone={statusTone(status)}>{statusLabel[status]}</Pill>
       </div>
 
+      {sale.needsCheck?.length ? (
+        <Card tone="bark" className="space-y-2 text-sm">
+          <div className="font-extrabold">Added automatically — please check</div>
+          {sale.needsCheck.map((f) => <div key={f}>⚠ {f}</div>)}
+          <Btn onClick={() => clearNeedsCheck(sale.id)}>Looks right</Btn>
+        </Card>
+      ) : null}
       <Card className="space-y-2">
         {sale.lines.map((l, i) => (
           <label key={i} className="flex min-h-12 items-center justify-between gap-3">
