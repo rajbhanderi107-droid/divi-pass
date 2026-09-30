@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { memo, useDeferredValue, useMemo, useState } from 'react';
+import { useWindow } from '../components/Windowed';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useSalesView, type SaleView } from '../db/queries';
 import { Card, Chip, Empty, Pill, inputCls } from '../components/ui';
@@ -18,9 +19,10 @@ export function Sales() {
   const f = sp.get('f') ?? 'all'; const night = sp.get('night');
   const today = istDate();
 
+  const dq = useDeferredValue(q);   // the box stays instant while the list catches up
   const list = useMemo(() => {
     if (!rows) return [];
-    const ql = q.trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
+    const ql = dq.trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
     return rows.filter((r) => {
       if (night && r.sale.eventId !== night) return false;
       if (f === 'tonight' && r.event?.date !== today) return false;
@@ -31,7 +33,8 @@ export function Sales() {
       return (r.customer?.nameLower ?? '').includes(ql) || r.sale.refNo.toLowerCase().includes(ql) ||
         (qd.length >= 3 && (r.customer?.phone.includes(qd) || r.payments.some((p) => p.utr?.includes(qd))));
     });
-  }, [rows, q, f, night, today]);
+  }, [rows, dq, f, night, today]);
+  const { count, more } = useWindow(list.length, `${dq}|${f}|${night}`);
 
   if (!rows) return null;
   return (
@@ -44,24 +47,29 @@ export function Sales() {
       </div>
       {list.length === 0 && <Empty text={rows.length === 0 ? 'No sales yet.' : f === 'unpaid' ? 'Nothing due 🎉' : f === 'unpunched' ? 'All punched 🎉' : 'No sales match.'}><Link to="/add" className="rounded-xl bg-sand px-5 py-3 font-bold text-ink">Add sale</Link></Empty>}
       <ul className="space-y-2">
-        {list.map((r) => (
-          <li key={r.sale.id}>
-            <Link to={`/sale/${r.sale.id}`}>
-              <Card className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">{r.customer?.name || (r.customer ? formatPhone(r.customer.phone) : '—')}</div>
-                  <div className="text-sm text-zinc-400">{linesText(r.sale)} · {r.event ? formatDateLabel(r.event.date) : ''}</div>
-                  <div className="text-xs text-zinc-500">{r.sale.refNo}{r.sale.punchState !== 'done' && !r.sale.cancelledAt ? ' · ● not punched' : ''}</div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="font-bold">{formatINR(r.sale.total)}</div>
-                  {r.sale.needsCheck?.length ? <span className="mr-1"><Pill tone="amber">Check</Pill></span> : null}<Pill tone={statusTone(r.status)}>{statusLabel[r.status]}{r.status === 'partial' ? ` · ${formatINR(r.due)} due` : ''}</Pill>
-                </div>
-              </Card>
-            </Link>
-          </li>
-        ))}
+        {list.slice(0, count).map((r) => <SaleRow key={r.sale.id} r={r} />)}
       </ul>
+      {more}
     </div>
   );
 }
+
+const SaleRow = memo(function SaleRow({ r }: { r: SaleView }) {
+  return (
+    <li className="row-cv">
+      <Link to={`/sale/${r.sale.id}`}>
+        <Card className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{r.customer?.name || (r.customer ? formatPhone(r.customer.phone) : '—')}</div>
+            <div className="text-sm text-zinc-400">{linesText(r.sale)} · {r.event ? formatDateLabel(r.event.date) : ''}</div>
+            <div className="text-xs text-zinc-500">{r.sale.refNo}{r.sale.punchState !== 'done' && !r.sale.cancelledAt ? ' · ● not punched' : ''}</div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="font-bold">{formatINR(r.sale.total)}</div>
+            {r.sale.needsCheck?.length ? <span className="mr-1"><Pill tone="amber">Check</Pill></span> : null}<Pill tone={statusTone(r.status)}>{statusLabel[r.status]}{r.status === 'partial' ? ` · ${formatINR(r.due)} due` : ''}</Pill>
+          </div>
+        </Card>
+      </Link>
+    </li>
+  );
+});

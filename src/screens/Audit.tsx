@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useWindow } from '../components/Windowed';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
@@ -12,14 +13,16 @@ export function Audit() {
     const ref = new Map(sales.map((s) => [s.id, s.refNo]));
     return log.map((r) => ({ ...r, ref: r.entity === 'sale' ? ref.get(r.entityId) : undefined }));
   }, []);
+  const shown = (rows ?? []).filter((r) => ent === 'all' || r.entity === ent);
+  const { count, more } = useWindow(shown.length, ent);
   if (!rows) return null;
-  const shown = rows.filter((r) => ent === 'all' || r.entity === ent);
   return (
     <div className="space-y-3"><Link to="/more" className="text-zinc-400">← More</Link>
       <h1 className="text-2xl font-bold">Change history</h1>
       <div className="flex gap-2 overflow-x-auto">{['all', 'sale', 'payment', 'expense', 'backup'].map((e) => <Chip key={e} active={ent === e} onClick={() => setEnt(e)}>{e}</Chip>)}</div>
       {shown.length === 0 && <Empty text="Nothing yet." />}
-      {shown.map((r) => <Card key={r.seq} className="py-2 text-sm"><div className="flex justify-between"><b>{r.entity} · {r.action}</b><span className="text-zinc-400">{formatDateTime(r.at)}</span></div>{r.ref && <Link to={`/sale/${r.entityId}`} className="text-sand">{r.ref}</Link>}</Card>)}
+      {shown.slice(0, count).map((r) => <Card key={r.seq} className="py-2 text-sm"><div className="flex justify-between"><b>{r.entity} · {r.action}</b><span className="text-zinc-400">{formatDateTime(r.at)}</span></div>{r.ref && <Link to={`/sale/${r.entityId}`} className="text-sand">{r.ref}</Link>}</Card>)}
+      {more}
     </div>
   );
 }

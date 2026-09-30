@@ -300,3 +300,34 @@ test('turning automatic adding off makes paste open the form again', async ({ pa
   await page.goto('/#/sales');
   await expect(page.getByText('Niyati Patel')).toHaveCount(0);
 });
+
+test('long lists draw a page at a time and load more while scrolling', async ({ page }, info) => {
+  const fs = await import('node:fs'); const hash = (s: string) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };
+  const t0 = 1_790_000_000_000; const N = 400;
+  const tables = {
+    events: [{ id: 'ev0', date: '2026-10-16', name: 'x', createdAt: t0, updatedAt: t0 }],
+    customers: Array.from({ length: N }, (_, i) => ({ id: 'c' + i, phone: '+9190000' + String(10000 + i), name: 'Buyer ' + i, nameLower: 'buyer ' + i, createdAt: t0, updatedAt: t0 })),
+    sales: Array.from({ length: N }, (_, i) => ({ id: 's' + i, refNo: 'DV-' + String(i + 1).padStart(4, '0'), eventId: 'ev0', customerId: 'c' + i, lines: [{ passTypeId: 'solo', nameSnap: 'Solo', seatsPerUnitSnap: 1, listPriceSnap: 800, unitPriceSnap: 650, qty: 1 }], discount: 0, total: 650, seats: 1, channel: 'whatsapp', punchState: 'none', createdAt: t0 + i, updatedAt: t0 + i })),
+    payments: [], receivers: [], passTypes: [], expenses: [],
+  };
+  const file = info.outputPath('big-backup.json'); fs.mkdirSync(info.outputDir, { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ app: 'divi-pass', schemaVersion: 2, exportedAt: 1, checksum: hash(JSON.stringify(tables)), tables }));
+  await page.goto('/#/more/backup');
+  await page.locator('input[type=file]').setInputFiles(file);
+  await page.getByRole('button', { name: 'Merge into this phone' }).click();
+  await page.getByText('Restored').waitFor();
+
+  await page.goto('/#/sales');
+  await expect(page.locator('ul > li').first()).toBeVisible();
+  const first = await page.locator('ul > li').count();
+  expect(first).toBeLessThanOrEqual(60);                                   // not all 400 at once
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect.poll(async () => page.locator('ul > li').count()).toBeGreaterThan(first);   // more arrive on scroll
+  // search still finds a row that was not on the first page
+  await page.getByPlaceholder(/Search name/).fill('Buyer 399');
+  await expect(page.getByText('DV-0400')).toBeVisible();
+  // other long screens open without error
+  for (const [hash2, heading] of [['#/more/customers', 'Customers'], ['#/money', 'Money'], ['#/more/gate', 'Gate list'], ['#/more/audit', 'Change history']] as const) {
+    await page.goto('/' + hash2); await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+  }
+});

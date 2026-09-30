@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useWindow } from '../components/Windowed';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
@@ -14,6 +15,8 @@ export function Money() {
   const rows = useSalesView(); const receivers = useReceivers(); const events = useEvents(); const toast = useToast();
   const expenses = useLiveQuery(async () => (await db.expenses.orderBy('paidAt').reverse().toArray()).filter((e) => !e.deletedAt), []);
   const [ev, setEv] = useState(''); const [label, setLabel] = useState(''); const [amt, setAmt] = useState(''); const [err, setErr] = useState('');
+  const duesAll = (rows ?? []).filter((r) => r.due > 0);
+  const { count: dueCount, more: dueMore } = useWindow(duesAll.length, duesAll.length);
   if (!rows || !receivers || !events || !expenses) return null;
   const today = istDate(); const curEv = events.find((e) => e.id === ev) ?? events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0];
   const dues = rows.filter((r) => r.due > 0).sort((a, b) => (a.event?.date ?? '').localeCompare(b.event?.date ?? '') || b.due - a.due);
@@ -32,7 +35,7 @@ export function Money() {
       </Card>
       <h2 className="font-semibold text-zinc-300">Dues · {formatINR(dues.reduce((a, r) => a + r.due, 0))}</h2>
       {dues.length === 0 && <Empty text="Nobody owes you anything 🎉" />}
-      {dues.map((r) => (
+      {dues.slice(0, dueCount).map((r) => (
         <Link key={r.sale.id} to={`/sale/${r.sale.id}`}>
           <Card className="mb-2 flex justify-between">
             <div><div className="font-semibold">{r.customer?.name || (r.customer && formatPhone(r.customer.phone))}</div><div className="text-sm text-zinc-400">{linesText(r.sale)}</div></div>
@@ -40,6 +43,7 @@ export function Money() {
           </Card>
         </Link>
       ))}
+      {dueMore}
       <h2 className="pt-2 font-semibold text-zinc-300">Expenses · {formatINR(expenses.reduce((a, e) => a + e.amount, 0))}</h2>
       <Card className="space-y-2">
         <div className="flex gap-2 overflow-x-auto">{events.map((e) => <Chip key={e.id} active={e.id === curEv?.id} onClick={() => setEv(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
