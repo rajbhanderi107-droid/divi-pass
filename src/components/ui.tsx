@@ -4,12 +4,12 @@ export const cx = (...a: (string | false | undefined | null)[]) => a.filter(Bool
 
 export function Btn({ kind = 'primary', className, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { kind?: 'primary' | 'ghost' | 'danger' }) {
   return (
-    <button {...p} className={cx('min-h-12 rounded-full px-5 font-bold disabled:opacity-40 active:scale-[.98] transition',
-      kind === 'primary' && 'btn-sand', kind === 'ghost' && 'border border-line bg-card text-cream shadow-lift', kind === 'danger' && 'border border-red-300/50 bg-[#5a2b26]/40 text-red-200', className)} />
+    <button {...p} className={cx('min-h-12 rounded-full px-5 font-extrabold disabled:opacity-40 active:translate-y-0.5 active:brightness-95 transition',
+      kind === 'primary' && 'clay-sand', kind === 'ghost' && 'clay-chip', kind === 'danger' && 'clay-chip !bg-none bg-[#7a3a32] text-red-100', className)} />
   );
 }
 export function Chip({ active, className, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
-  return <button {...p} className={cx('min-h-10 shrink-0 rounded-full border px-4 text-sm font-semibold whitespace-nowrap', active ? 'border-sand bg-sand text-ink shadow-glow' : 'border-line bg-card text-cream/90', className)} />;
+  return <button {...p} className={cx('min-h-10 shrink-0 px-4 text-sm font-bold whitespace-nowrap active:translate-y-0.5', active ? 'clay-sand' : 'clay-chip', className)} />;
 }
 export function Field({ label, hint, error, group, children }: { label: string; hint?: string; error?: string; group?: boolean; children: ReactNode }) {
   const body = (
@@ -22,7 +22,7 @@ export function Field({ label, hint, error, group, children }: { label: string; 
   // Groups of buttons/inputs must not sit inside a <label>: it would rename every control inside.
   return group ? <div role="group" aria-label={label}>{body}</div> : <label className="block">{body}</label>;
 }
-export const inputCls = 'w-full min-h-12 rounded-2xl border border-line bg-[#0b2f27] px-4 text-cream placeholder:text-zinc-500 shadow-[inset_0_2px_6px_rgba(0,0,0,.35)] focus:border-sand focus:outline-none';
+export const inputCls = 'clay-inset w-full min-h-12 px-4 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-sand/70';
 export const Card = ({ className, tone, ...p }: React.HTMLAttributes<HTMLDivElement> & { tone?: 'bark' | 'sage' | 'sand' | 'deep' }) => <div {...p} className={cx('surface p-4', tone && `surface-${tone}`, className)} />;
 export const Empty = ({ text, children }: { text: string; children?: ReactNode }) => (
   <div className="py-12 text-center text-zinc-400"><p className="mb-4">{text}</p>{children}</div>
@@ -35,7 +35,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/60" onClick={onClose}>
-      <div role="dialog" aria-label={title} className="max-h-[90dvh] w-full overflow-y-auto rounded-t-[32px] border-t border-line bg-[#0e3a30] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label={title} className="max-h-[90dvh] w-full overflow-y-auto clay-bar p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">{title}</h2><button aria-label="Close" className="h-10 w-10 text-2xl text-zinc-400" onClick={onClose}>×</button></div>
         {children}
       </div>
@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastCtx.Provider value={show}>
       {children}
       {t && (
-        <div role="status" className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-50 flex items-center justify-between gap-3 rounded-2xl bg-sand px-4 py-3 font-semibold text-ink shadow-xl">
+        <div role="status" className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-50 flex items-center justify-between gap-3 clay-sand !rounded-3xl px-5 py-3 font-bold">
           <span>{t.text}</span>
           {t.action && <button className="font-extrabold text-[#5a3524] underline" onClick={() => { t.action!.run(); setT(null); }}>{t.action.label}</button>}
         </div>

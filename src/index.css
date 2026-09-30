@@ -14,7 +14,7 @@ body {
 }
 /* soft sand-ripple texture, like the board's green ground */
 body::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; opacity: .09; z-index: 0;
+  content: ''; position: fixed; inset: 0; pointer-events: none; opacity: .07; z-index: 0;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90' viewBox='0 0 160 90'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M0 20 C25 4 55 36 80 20 S135 4 160 20'/%3E%3Cpath d='M0 50 C25 34 55 66 80 50 S135 34 160 50'/%3E%3Cpath d='M0 80 C25 64 55 96 80 80 S135 64 160 80'/%3E%3C/g%3E%3C/svg%3E");
 }
 #root { position: relative; z-index: 1; }
@@ -23,13 +23,25 @@ input, textarea, select { font-size: 16px; }
 h1, h2 { letter-spacing: -.01em; }
 
 @layer components {
-  .surface { background: linear-gradient(155deg, #25705a 0%, #1a5343 100%); border: 1px solid rgba(255,255,255,.09); box-shadow: 0 10px 24px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08); border-radius: 24px; }
-  .surface-bark { background: linear-gradient(155deg, #83533b 0%, #5a3524 100%); }
-  .surface-sage { background: linear-gradient(155deg, #90b97c 0%, #648f56 100%); color: #10261c; }
-  .surface-sand { background: linear-gradient(155deg, #f3dcb9 0%, #dcbb90 100%); color: #3a2216; }
-  .surface-hero { background: linear-gradient(118deg, #2a7a63 0%, #1c5747 52%, #6f4331 100%); }
-  .surface-deep { background: linear-gradient(160deg, #1b5a4a 0%, #123f34 100%); }
-  .btn-sand { background: linear-gradient(180deg, #f5dcb7 0%, #e5c08f 100%); color: #3a2216; box-shadow: 0 8px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.55); }
+  /* Claymorphism: inflated shapes. Each piece has an outer floating shadow, a bright inner top-left highlight and a soft inner shade at the bottom. */
+  .clay { border-radius: 30px; border: 0;
+    box-shadow: 0 16px 26px -10px rgba(2, 18, 14, .65), 0 4px 8px rgba(2, 18, 14, .25),
+                inset 0 3px 5px rgba(255, 255, 255, .30), inset 0 -9px 16px rgba(0, 0, 0, .26); }
+  .surface { @apply clay; background: linear-gradient(150deg, #2f8168 0%, #1e5c4b 100%); }
+  .surface.surface-bark { background: linear-gradient(150deg, #93604a 0%, #5d3626 100%); }
+  .surface.surface-sage { background: linear-gradient(150deg, #a1c88b 0%, #6a9659 100%); color: #10261c; }
+  .surface.surface-sand { background: linear-gradient(150deg, #f8e3c3 0%, #dcb98c 100%); color: #3a2216; }
+  .surface.surface-deep { background: linear-gradient(150deg, #226a55 0%, #134536 100%); }
+  .surface.surface-hero { background: linear-gradient(120deg, #33896f 0%, #1f5f4d 50%, #7a4a37 100%); }
+  .clay-chip { border-radius: 999px; border: 0; background: linear-gradient(150deg, #2c7962 0%, #1c5847 100%); color: #f6e6cc;
+    box-shadow: 0 8px 14px -6px rgba(2, 18, 14, .6), inset 0 2px 3px rgba(255, 255, 255, .28), inset 0 -5px 9px rgba(0, 0, 0, .25); }
+  .clay-sand { border-radius: 999px; border: 0; background: linear-gradient(150deg, #f9e5c6 0%, #e2bf92 100%); color: #3a2216;
+    box-shadow: 0 10px 16px -6px rgba(2, 18, 14, .6), inset 0 3px 4px rgba(255, 255, 255, .6), inset 0 -6px 10px rgba(120, 78, 40, .35); }
+  .btn-sand { @apply clay-sand; }
+  .clay-inset { border-radius: 22px; border: 0; background: #0c3329; color: #f6e6cc;
+    box-shadow: inset 0 5px 10px rgba(0, 0, 0, .5), inset 0 -2px 4px rgba(255, 255, 255, .12); }
+  .clay-bar { border-radius: 34px 34px 0 0; background: linear-gradient(180deg, #17564a 0%, #0d3a30 100%);
+    box-shadow: 0 -12px 26px rgba(2, 18, 14, .5), inset 0 3px 5px rgba(255, 255, 255, .18); }
 }
 
 @media print {

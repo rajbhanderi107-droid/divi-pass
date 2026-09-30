@@ -165,7 +165,7 @@ function EditSheet({ open, onClose, sale }: { open: boolean; onClose: () => void
           <Card key={i} className="space-y-2">
             <div className="flex items-center justify-between"><b>{l.nameSnap}</b>
               <div className="flex items-center gap-3">
-                <button className="h-10 w-10 rounded-lg border border-line" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>
+                <button className="h-10 w-10 clay-chip" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>
                 <span className="w-6 text-center">{l.qty}</span>
                 <button className="h-10 w-10 rounded-lg bg-sand text-ink" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: x.qty + 1 } : x)))}>+</button>
               </div></div>

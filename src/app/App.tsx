@@ -42,10 +42,10 @@ export function App() {
           <Route path="*" element={<Home />} />
         </Routes>
       </main>
-      <nav className="no-print fixed inset-x-0 bottom-0 z-30 rounded-t-[28px] border-t border-white/10 bg-[#0a2c25]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,.35)] backdrop-blur">
+      <nav className="no-print fixed inset-x-0 bottom-0 z-30 clay-bar pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto grid max-w-xl grid-cols-5">
           {tabs.map(([to, label, icon]) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `mx-0.5 my-1 flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-bold ${isActive ? 'bg-sand/15 text-sand' : 'text-zinc-400'}`}>
+            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `mx-0.5 my-1 flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-bold ${isActive ? 'clay-sand !rounded-2xl' : 'text-zinc-400'}`}>
               <span className={`text-xl leading-none ${to === '/add' ? 'rounded-full bg-sand px-3 py-1 text-ink' : ''}`}>{icon}</span>{label}
             </NavLink>
           ))}

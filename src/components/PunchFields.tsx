@@ -12,7 +12,7 @@ export function PunchFields({ fields, ticketSlot }: { fields: PunchField[]; tick
             <div className="text-xs uppercase tracking-wide text-zinc-400">{f.label}</div>
             {f.label === 'Ticket' && ticketSlot ? ticketSlot : <div className="break-words text-lg font-semibold">{f.value || '—'}</div>}
           </div>
-          <button className="min-h-11 shrink-0 rounded-xl border border-line bg-card px-4 font-semibold" disabled={!f.value}
+          <button className="min-h-11 shrink-0 clay-chip px-4 font-bold" disabled={!f.value}
             onClick={async () => toast((await copyText(f.value)) ? `${f.label} copied` : 'Copy failed')} aria-label={`Copy ${f.label}`}>Copy</button>
         </li>
       ))}

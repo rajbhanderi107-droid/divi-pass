@@ -32,9 +32,9 @@ export function Gate() {
               <div className="text-right text-xl font-bold" aria-label={`${v.customer?.name ?? 'Buyer'} entered`}>{e}/{v.sale.seats}</div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <button aria-label="One less" className="min-h-12 rounded-xl border border-line text-2xl disabled:opacity-30" disabled={e <= 0} onClick={() => setEntered(v.sale.id, e - 1)}>−</button>
-              <button aria-label="One more" className="min-h-12 rounded-xl bg-sand text-2xl text-ink disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, e + 1)}>+</button>
-              <button className="min-h-12 rounded-xl border border-line text-sm font-semibold disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, v.sale.seats)}>All in</button>
+              <button aria-label="One less" className="min-h-12 clay-chip text-2xl disabled:opacity-30" disabled={e <= 0} onClick={() => setEntered(v.sale.id, e - 1)}>−</button>
+              <button aria-label="One more" className="min-h-12 clay-sand text-2xl disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, e + 1)}>+</button>
+              <button className="min-h-12 clay-chip text-sm font-semibold disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, v.sale.seats)}>All in</button>
             </div>
           </Card>
         );

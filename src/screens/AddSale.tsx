@@ -208,7 +208,7 @@ export function AddSale() {
         </div>
         {photoErr === 'setup' && <p role="alert" className="text-sm text-amber-300">Photo reading is not set up yet. <Link to="/more/photo" className="underline">Set it up</Link></p>}
         {photoErr && photoErr !== 'setup' && <p role="alert" className="text-sm text-red-300">{photoErr}</p>}
-        {thumbs.length > 0 && <div className="flex gap-2 overflow-x-auto">{thumbs.map((u) => <img key={u} src={u} alt="Photo being read" className="h-24 rounded-lg border border-line" />)}</div>}
+        {thumbs.length > 0 && <div className="flex gap-2 overflow-x-auto">{thumbs.map((u) => <img key={u} src={u} alt="Photo being read" className="h-24 clay-chip" />)}</div>}
         {thumbs.length > 0 && <p className="text-xs text-zinc-400">Check the name, phone and UTR against the photo before saving.</p>}
         {drafts.length > 1 && (
           <div className="flex gap-2 overflow-x-auto">{drafts.map((d, i) => <Chip key={i} active={i === idx} onClick={() => { setIdx(i); applyDraft(d); }}>{i + 1}. {d.name ?? 'Sale'}</Chip>)}</div>
@@ -227,9 +227,9 @@ export function AddSale() {
               <div className="flex items-center justify-between">
                 <div><div className="font-semibold">{p.name}</div><div className="text-xs text-zinc-400">{nightPrice(p) !== p.price ? 'this night’s price · ' : ''}{p.seatsPerUnit > 1 ? `${p.seatsPerUnit} seats each · ` : ''}list {formatINR(p.listPrice)}</div></div>
                 <div className="flex items-center gap-3">
-                  <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 rounded-xl border border-line text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
+                  <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 clay-chip text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
                   <span className="w-6 text-center text-xl font-bold">{qty[p.id] ?? 0}</span>
-                  <button aria-label={`More ${p.name}`} className="h-12 w-12 rounded-xl bg-sand text-2xl text-ink" onClick={() => setStep(p.id, 1)}>+</button>
+                  <button aria-label={`More ${p.name}`} className="h-12 w-12 clay-sand text-2xl" onClick={() => setStep(p.id, 1)}>+</button>
                 </div>
               </div>
               <div className="flex items-center gap-2">

@@ -54,8 +54,8 @@ export function Home() {
           <div><b>Check your prices and nights.</b> They start as guesses ({passTypes.map((p) => `${p.name} ${formatINR(p.price)}`).join(' · ')}). Prices change a lot, so set them your way — you can also change the price on any sale from the Add screen.</div>
           <div className="flex flex-wrap gap-2">
             <Link to="/more/passes" className="btn-sand rounded-full px-4 py-2 font-bold">Set prices</Link>
-            <Link to="/more/nights" className="rounded-full border border-line px-4 py-2 font-semibold">Set nights</Link>
-            <button className="rounded-full border border-line px-4 py-2" onClick={() => setSetting('pricesConfirmed', true)}>They’re right</button>
+            <Link to="/more/nights" className="clay-chip px-4 py-2 font-semibold">Set nights</Link>
+            <button className="clay-chip px-4 py-2" onClick={() => setSetting('pricesConfirmed', true)}>They’re right</button>
           </div>
         </Card>
       )}

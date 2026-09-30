@@ -90,8 +90,8 @@ function TicketEditor({ value, onSaveLine, onSaveAll, passName }: { value: strin
       <div className="text-xs text-zinc-500">Same wording as Showmates’ Ticket list, e.g. “EARLY BIRD | SINGLE”.</div>
       {changed && (
         <div className="flex flex-wrap gap-2">
-          <button className="min-h-10 rounded-lg border border-line px-3 text-sm" onClick={() => onSaveLine(v)}>Use for this sale</button>
-          {onSaveAll && <button className="min-h-10 rounded-lg border border-line px-3 text-sm" onClick={() => onSaveAll(v.trim())}>Use for all {passName} sales</button>}
+          <button className="min-h-10 clay-chip px-3 text-sm" onClick={() => onSaveLine(v)}>Use for this sale</button>
+          {onSaveAll && <button className="min-h-10 clay-chip px-3 text-sm" onClick={() => onSaveAll(v.trim())}>Use for all {passName} sales</button>}
         </div>
       )}
     </div>
