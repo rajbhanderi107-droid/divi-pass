@@ -4,6 +4,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { seedIfEmpty } from '../db/seed';
 import { purgeTrash } from '../db/repo';
 import { ToastProvider } from '../components/ui';
+import { startSync } from '../sync';
 import { Home } from '../screens/Home';
 import { Sales } from '../screens/Sales';
 import { AddSale } from '../screens/AddSale';
@@ -19,7 +20,7 @@ export function App() {
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string>();
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
-  useEffect(() => { seedIfEmpty().then(() => { setReady(true); const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 2000)); idle(() => { purgeTrash().catch(() => {}); }); }).catch((e) => setErr(String(e?.message ?? e))); }, []);
+  useEffect(() => { seedIfEmpty().then(() => { setReady(true); startSync(); const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 2000)); idle(() => { purgeTrash().catch(() => {}); }); }).catch((e) => setErr(String(e?.message ?? e))); }, []);
 
   if (err) return <div className="p-6"><h1 className="text-xl font-bold">Could not open the database</h1><p className="mt-2 text-zinc-400">{err}</p><p className="mt-2 text-zinc-400">Close other Divi Pass tabs and reload. If it keeps failing, restore from a backup file in a fresh browser.</p></div>;
   if (!ready) return <div className="p-6 text-zinc-400">Loading…</div>;

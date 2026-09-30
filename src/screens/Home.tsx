@@ -4,6 +4,7 @@ import { useEvents, useInbox, usePassTypes, useSalesView, useSetting } from '../
 import { setSetting } from '../db/repo';
 import { Card, Empty } from '../components/ui';
 import { Leaves } from '../components/Leaves';
+import { useSyncStatus } from '../sync';
 import { formatINR } from '../domain/money';
 import { formatDateLabel, istDate } from '../domain/time';
 
@@ -16,7 +17,7 @@ export function Home() {
   const since = useSetting<number>('salesSinceBackup', 0);
   const persisted = useSetting<boolean | null>('storagePersisted', null);
   const pricesOk = useSetting<boolean>('pricesConfirmed', false);
-  const passTypes = usePassTypes(); const inbox = useInbox();
+  const passTypes = usePassTypes(); const inbox = useInbox(); const syncSt = useSyncStatus();
   const [today] = useState(() => istDate());
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export function Home() {
         <div className="relative max-w-[62%] space-y-1">
           <div className="text-xs font-bold uppercase tracking-[.14em] text-sand/80">Divya Achariya Divi</div>
           <h1 className="text-3xl font-extrabold leading-tight text-cream">Divi Pass</h1>
+          <Link to="/more/sync" className="block text-xs text-cream/80">{syncSt.state === 'off' ? '☁ Not synced — tap to connect' : syncSt.state === 'ok' ? '☁ Synced' : syncSt.state === 'syncing' ? '☁ Syncing…' : syncSt.state === 'offline' ? '☁ Offline — will catch up' : '☁ Sync problem — tap'}</Link>
           <p className="text-sm text-cream/85">{tonight ? `${formatDateLabel(tonight.date)} · ${tonightSeats} seat${tonightSeats === 1 ? '' : 's'} sold` : 'Your pass register'}</p>
         </div>
         <Link to="/add" className="btn-sand relative mt-4 inline-block rounded-full px-6 py-3 font-extrabold">＋ Add a sale</Link>
