@@ -13,6 +13,7 @@ import { amountDue, netPaid, payStatus } from '../domain/status';
 import { punchBlocks } from '../domain/showmates';
 import { statusLabel, statusTone } from './Sales';
 import { relatedPeople } from '../domain/book';
+import { useAuth } from '../auth';
 import { PunchFields } from '../components/PunchFields';
 
 export function SaleDetail() {
@@ -23,6 +24,7 @@ export function SaleDetail() {
     const [customer, payments] = await Promise.all([db.customers.get(sale.customerId), db.payments.where('saleId').equals(id).toArray()]);
     return { sale, customer, payments };
   }, [id]);
+  const auth = useAuth(); const role = auth.status === 'in' ? auth.profile.role : 'seller';
   const [paySheet, setPaySheet] = useState<null | 'receipt' | 'refund'>(null); const [editOpen, setEditOpen] = useState(false); const [mergeOpen, setMergeOpen] = useState(false);
 
   if (data === undefined || !events || !receivers) return null;
@@ -47,7 +49,7 @@ export function SaleDetail() {
         <Pill tone={statusTone(status)}>{statusLabel[status]}</Pill>
       </div>
 
-      {receivers.length > 1 && (
+      {receivers.length > 1 && role !== 'seller' && (
         <Field group label="Sold by">
           <div className="flex gap-2 overflow-x-auto pb-1">{receivers.map((r) => <Chip key={r.id} active={sale.sellerId === r.id} onClick={() => setSeller(sale.id, sale.sellerId === r.id ? '' : r.id)}>{r.name}</Chip>)}</div>
         </Field>

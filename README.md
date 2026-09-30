@@ -49,9 +49,17 @@ Stack: Vite, React, TypeScript, Tailwind, Dexie (IndexedDB), PWA. See `PLAN.md` 
 - Every save is all-or-nothing and logged; deletes go to Trash for 30 days.
 - The pass price is copied onto each sale, so changing prices never changes old sales.
 
-## Sync (same sales on every phone)
+## Sign-in, roles and sync
 
-More → **Sync** connects the app to a private cloud table (Supabase edge function `sync`, guarded by a secret key). Works offline first; changes upload/download automatically when online. Last edit wins per row. Synced: nights, pass types, buyers, sales, payments, receivers, expenses. Not synced: payment screenshots, Inbox, settings. Open the app once with `#/more/sync?u=<function url>&k=<key>` to prefill the form.
+Everyone signs in (login id + password, or Google). Roles:
+
+- **Super admin** (Raj, Dev): everything, and the only ones who can create logins and passwords (More → Team & logins).
+- **Admin**: everything about sales and money for all sellers, nights, prices, reports, backups — but cannot create logins.
+- **Seller**: only their own book. The server sends a seller nothing else, and refuses writes outside their book.
+
+Sales sync through the cloud (Supabase edge function `sync`, which checks the sign-in and role on every call). The app works offline and catches up. Signing out clears that phone's copy. Synced: nights, pass types, buyers, sales, payments, receivers, expenses (expenses are never sent to sellers). Not synced: payment screenshots, Inbox, settings.
+
+Google sign-in works only for emails a super admin has added, and needs the Google provider switched on in the Supabase dashboard (Authentication → Sign In / Providers → Google) and the site address in Authentication → URL Configuration.
 
 ## Sellers
 

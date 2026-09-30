@@ -1,3 +1,4 @@
+import { useAuth } from '../auth';
 import { BookBar } from '../components/BookBar';
 import { useState } from 'react';
 import { useWindow } from '../components/Windowed';
@@ -13,6 +14,7 @@ import { formatPhone } from '../domain/phone';
 import { linesText } from './Sales';
 
 export function Money() {
+  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role === 'seller';
   const rows = useSalesView(); const receivers = useReceivers(); const events = useEvents(); const toast = useToast();
   const expenses = useLiveQuery(async () => (await db.expenses.orderBy('paidAt').reverse().toArray()).filter((e) => !e.deletedAt), []);
   const [ev, setEv] = useState(''); const [label, setLabel] = useState(''); const [amt, setAmt] = useState(''); const [err, setErr] = useState('');
@@ -49,6 +51,7 @@ export function Money() {
         </Link>
       ))}
       {dueMore}
+      {!isSeller && (<>
       <h2 className="pt-2 font-semibold text-zinc-300">Expenses · {formatINR(expenses.reduce((a, e) => a + e.amount, 0))}</h2>
       <Card className="space-y-2">
         <div className="flex gap-2 overflow-x-auto">{events.map((e) => <Chip key={e.id} active={e.id === curEv?.id} onClick={() => setEv(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
@@ -66,6 +69,7 @@ export function Money() {
         <Card key={e.id} className="flex items-center justify-between"><div><b>{e.label}</b><div className="text-xs text-zinc-400">{formatDateLabel(events.find((x) => x.id === e.eventId)?.date ?? '1970-01-01')}</div></div>
           <div className="flex items-center gap-3"><b>{formatINR(e.amount)}</b><button className="text-red-400" onClick={() => { deleteExpense(e.id); toast('Expense removed', { label: 'Undo', run: () => { restoreExpense(e.id); } }); }}>Remove</button></div></Card>
       ))}
+      </>)}
     </div>
   );
 }

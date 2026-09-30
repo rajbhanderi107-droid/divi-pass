@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import { Link, useLocation } from 'react-router-dom';
 import { ingestText, type AutoMode } from '../lib/ingest';
-import { useBook, useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
+import { useAuth } from '../auth';
+import { readBook, useBook, useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
 import { relatedPeople } from '../domain/book';
 import { preparePhoto, readPhotoText, ReaderError } from '../lib/photo';
 import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, removeInbox, savePassType, setSetting, ValidationError } from '../db/repo';
@@ -34,7 +35,8 @@ export function AddSale() {
   const season = useSetting<{ from: string; to: string } | undefined>('season', undefined);
   const lastReceiver = useSetting<string>('lastReceiver', '');
   const book = useBook(); const lastSeller = useSetting<string>('lastSeller', ''); const [pickedSeller, setPickedSeller] = useState('');
-  const sellerId = pickedSeller || book || lastSeller;
+  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role === 'seller';
+  const sellerId = isSeller ? book : pickedSeller || book || lastSeller;
   const toast = useToast();
 
   const [text, setText] = useState(''); const [drafts, setDrafts] = useState<Draft[]>([]); const [idx, setIdx] = useState(0);
@@ -106,17 +108,18 @@ export function AddSale() {
     setDrafts(ds); setIdx(0);
     if (ds[0]) applyDraft(ds[0]); else { setWarns(['Nothing recognised — fill the form below.']); }
   }
+  const isSellerNow = async () => ((await db.settings.get('profile'))?.value as { role?: string } | undefined)?.role === 'seller';
   /** Adds records straight from text. Returns true when it handled the text (nothing more for the user to do here). */
   async function runIngest(all: string, fromPhoto: boolean): Promise<boolean> {
     // read everything fresh from the database so an early paste/photo never races the screen's own loading
     const live = <T extends { deletedAt?: number }>(rows: T[]) => rows.filter((x) => !x.deletedAt);
-    const [pts, evs, rcs, modeRow, seasonRow, lastRcv, bookRow, lastSellerRow] = await Promise.all([
+    const [pts, evs, rcs, modeRow, seasonRow, lastRcv, bookNow, lastSellerRow] = await Promise.all([
       db.passTypes.orderBy('sortOrder').toArray(), db.events.orderBy('date').toArray(), db.receivers.toArray(),
-      db.settings.get('autoAdd'), db.settings.get('season'), db.settings.get('lastReceiver'), db.settings.get('book'), db.settings.get('lastSeller'),
+      db.settings.get('autoAdd'), db.settings.get('season'), db.settings.get('lastReceiver'), readBook(), db.settings.get('lastSeller'),
     ]);
     const m = ((modeRow?.value as AutoMode | undefined) ?? 'always');
     if (m === 'off') return false;
-    const r = await ingestText(all, { passTypes: live(pts), events: live(evs), receivers: live(rcs), lastReceiverId: (lastRcv?.value as string) ?? '', sellerId: pickedSeller || (bookRow?.value as string) || (lastSellerRow?.value as string) || '', season: seasonRow?.value as { from: string; to: string } | undefined, mode: m, fromPhoto });
+    const r = await ingestText(all, { passTypes: live(pts), events: live(evs), receivers: live(rcs), lastReceiverId: (lastRcv?.value as string) ?? '', sellerId: (await isSellerNow()) ? bookNow : pickedSeller || bookNow || (lastSellerRow?.value as string) || '', season: seasonRow?.value as { from: string; to: string } | undefined, mode: m, fromPhoto });
     if (r.fallbackToForm) return false;
     reset();
     const bits: string[] = [];
@@ -248,7 +251,7 @@ export function AddSale() {
       </Card>
       {warnList.length > 0 && <Card tone="bark" className="space-y-1 text-sm text-cream">{warnList.map((w) => <div key={w}>⚠ {w}</div>)}</Card>}
 
-      {receivers.length > 1 && (
+      {receivers.length > 1 && !isSeller && (
         <Field group label="Sold by">
           <div className="flex gap-2 overflow-x-auto pb-1">{receivers.map((r) => <Chip key={r.id} active={sellerId === r.id} onClick={() => setPickedSeller(r.id)}>{r.name}</Chip>)}</div>
         </Field>
