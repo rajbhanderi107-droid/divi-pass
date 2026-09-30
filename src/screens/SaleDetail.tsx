@@ -25,7 +25,7 @@ export function SaleDetail() {
   const [paySheet, setPaySheet] = useState<null | 'receipt' | 'refund'>(null); const [editOpen, setEditOpen] = useState(false); const [mergeOpen, setMergeOpen] = useState(false);
 
   if (data === undefined || !events || !receivers) return null;
-  if (data === null) return <Empty text="Sale not found."><Link to="/sales" className="text-lime">Back to sales</Link></Empty>;
+  if (data === null) return <Empty text="Sale not found."><Link to="/sales" className="text-sand">Back to sales</Link></Empty>;
   const { sale, customer, payments } = data;
   const live = payments.filter((p) => !p.deletedAt);
   const status = payStatus(sale, live); const due = amountDue(sale, live); const paid = netPaid(live);
@@ -41,7 +41,7 @@ export function SaleDetail() {
         <div>
           <h1 className="text-2xl font-bold">{customer?.name || (customer && formatPhone(customer.phone))}</h1>
           <div className="text-sm text-zinc-400">{sale.refNo} · {event ? formatDateLabel(event.date) : ''}</div>
-          {customer && <div className="mt-1 flex gap-3 text-sm"><a className="text-lime" href={`tel:${customer.phone}`}>{formatPhone(customer.phone)}</a><a className="text-lime" href={`https://wa.me/${phoneDigits(customer.phone)}`} target="_blank" rel="noreferrer">WhatsApp</a></div>}
+          {customer && <div className="mt-1 flex gap-3 text-sm"><a className="text-sand" href={`tel:${customer.phone}`}>{formatPhone(customer.phone)}</a><a className="text-sand" href={`https://wa.me/${phoneDigits(customer.phone)}`} target="_blank" rel="noreferrer">WhatsApp</a></div>}
         </div>
         <Pill tone={statusTone(status)}>{statusLabel[status]}</Pill>
       </div>
@@ -50,12 +50,12 @@ export function SaleDetail() {
         {sale.lines.map((l, i) => (
           <label key={i} className="flex min-h-12 items-center justify-between gap-3">
             <span><b>{l.qty} × {l.nameSnap}</b> <span className="text-zinc-400">@ {formatINR(l.unitPriceSnap)}</span>{l.unitPriceSnap !== l.listPriceSnap && <span className="ml-1 text-xs text-zinc-500">(list {formatINR(l.listPriceSnap)})</span>}</span>
-            <span className="flex items-center gap-2 text-sm text-zinc-300"><input type="checkbox" className="h-6 w-6 accent-lime" checked={!!l.punchedAt} onChange={(e) => setLinePunched(sale.id, i, e.target.checked)} /> Punched</span>
+            <span className="flex items-center gap-2 text-sm text-zinc-300"><input type="checkbox" className="h-6 w-6 accent-sand" checked={!!l.punchedAt} onChange={(e) => setLinePunched(sale.id, i, e.target.checked)} /> Punched</span>
           </label>
         ))}
         {sale.discount > 0 && <div className="flex justify-between text-sm text-zinc-400"><span>Discount</span><span>−{formatINR(sale.discount)}</span></div>}
         <div className="flex justify-between border-t border-line pt-2"><span>Total</span><b>{formatINR(sale.total)}</b></div>
-        <div className="flex justify-between"><span>Paid</span><b className="text-lime">{formatINR(paid)}</b></div>
+        <div className="flex justify-between"><span>Paid</span><b className="text-sand">{formatINR(paid)}</b></div>
         {due > 0 && <div className="flex justify-between"><span>Due</span><b className="text-amber-300">{formatINR(due)}</b></div>}
         {status === 'overpaid' && <div className="text-sm text-red-300">Paid {formatINR(paid - sale.total)} more than the total.</div>}
         {status === 'refundDue' && <div className="text-sm text-red-300">Cancelled — refund {formatINR(paid)} to the buyer.</div>}
@@ -73,7 +73,7 @@ export function SaleDetail() {
               </div>
             </Card>
           ))}
-          <Link to="/punch" className="block text-center text-lime underline">Punch several in a row →</Link>
+          <Link to="/punch" className="block text-center text-sand underline">Punch several in a row →</Link>
           {blocks.length > 1 && <Btn kind="ghost" className="w-full" onClick={() => markAllPunched(sale.id)}>Mark all punched</Btn>}
         </div>
       )}
@@ -85,7 +85,7 @@ export function SaleDetail() {
           <div>
             <div className="font-semibold">{p.kind === 'refund' ? '−' : ''}{formatINR(p.amount)} <span className="text-xs font-normal text-zinc-400">{p.kind === 'refund' ? 'refund' : p.method.toUpperCase()}</span></div>
             <div className="text-xs text-zinc-400">{formatDateTime(p.paidAt)}{rname(p.receiverId) ? ` · to ${rname(p.receiverId)}` : ''}</div>
-            {p.utr && <button className="text-xs text-lime" onClick={() => copyText(p.utr!).then(() => toast('UTR copied'))}>UTR {p.utr}</button>}
+            {p.utr && <button className="text-xs text-sand" onClick={() => copyText(p.utr!).then(() => toast('UTR copied'))}>UTR {p.utr}</button>}
             <PaymentShot payment={p} />
           </div>
           <button className="px-2 text-red-400" onClick={() => { deletePayment(p.id); toast('Payment removed', { label: 'Undo', run: () => { restorePayment(p.id); } }); }}>Remove</button>
@@ -167,7 +167,7 @@ function EditSheet({ open, onClose, sale }: { open: boolean; onClose: () => void
               <div className="flex items-center gap-3">
                 <button className="h-10 w-10 rounded-lg border border-line" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>
                 <span className="w-6 text-center">{l.qty}</span>
-                <button className="h-10 w-10 rounded-lg bg-lime text-black" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: x.qty + 1 } : x)))}>+</button>
+                <button className="h-10 w-10 rounded-lg bg-sand text-ink" onClick={() => setLines(lines.map((x, j) => (j === i ? { ...x, qty: x.qty + 1 } : x)))}>+</button>
               </div></div>
             <Field label="Price each"><input className={inputCls} inputMode="numeric" value={l.price} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))} /></Field>
             {lines.length > 1 && <button className="text-red-400" onClick={() => setLines(lines.filter((_, j) => j !== i))}>Remove line</button>}

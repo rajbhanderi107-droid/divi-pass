@@ -47,7 +47,7 @@ export function Reports() {
           <div className="grid grid-cols-2 gap-2">
             <Card><div className="text-xs text-zinc-400">Sales · seats</div><b>{st.sales} · {st.seats}</b></Card>
             <Card><div className="text-xs text-zinc-400">Sold value</div><b>{formatINR(st.revenue)}</b></Card>
-            <Card><div className="text-xs text-zinc-400">Collected</div><b className="text-lime">{formatINR(st.collected)}</b></Card>
+            <Card><div className="text-xs text-zinc-400">Collected</div><b className="text-sand">{formatINR(st.collected)}</b></Card>
             <Card><div className="text-xs text-zinc-400">Due</div><b className="text-amber-300">{formatINR(st.due)}</b></Card>
             <Card><div className="text-xs text-zinc-400">Expenses</div><b>{formatINR(st.expenses)}</b></Card>
             <Card><div className="text-xs text-zinc-400">Net (collected − expenses)</div><b>{formatINR(st.net)}</b></Card>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useEvents, usePassTypes, useSalesView, useSetting } from '../db/queries';
 import { setSetting } from '../db/repo';
 import { Card, Empty } from '../components/ui';
+import { Leaves } from '../components/Leaves';
 import { formatINR } from '../domain/money';
 import { formatDateLabel, istDate } from '../domain/time';
 
@@ -28,6 +29,8 @@ export function Home() {
   const unpunched = active.filter((s) => s.sale.punchState !== 'done').length;
   const linesToPunch = active.reduce((a, s) => a + s.sale.lines.filter((l) => !l.punchedAt).length, 0);
   const collected = sales.reduce((a, s) => a + s.payments.reduce((x, p) => x + (p.kind === 'receipt' ? p.amount : -p.amount), 0), 0);
+  const tonight = events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0];
+  const tonightSeats = tonight ? active.filter((x) => x.sale.eventId === tonight.id).reduce((a, x) => a + x.sale.seats, 0) : 0;
   const overdue = since >= 10 || (since > 0 && (!lastBackup || Date.now() - lastBackup > 2 * 86_400_000)) || (!lastBackup && sales.length > 0);
 
   const banners: { key: string; text: string; to?: string }[] = [];
@@ -37,30 +40,38 @@ export function Home() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Divi Pass</h1>
+      <div className="surface surface-hero relative overflow-hidden p-5">
+        <Leaves className="pointer-events-none absolute -right-3 -top-2 h-40 w-44 opacity-95" />
+        <div className="relative max-w-[62%] space-y-1">
+          <div className="text-xs font-bold uppercase tracking-[.14em] text-sand/80">Divya Achariya Divi</div>
+          <h1 className="text-3xl font-extrabold leading-tight text-cream">Divi Pass</h1>
+          <p className="text-sm text-cream/85">{tonight ? `${formatDateLabel(tonight.date)} · ${tonightSeats} seat${tonightSeats === 1 ? '' : 's'} sold` : 'Your pass register'}</p>
+        </div>
+        <Link to="/add" className="btn-sand relative mt-4 inline-block rounded-full px-6 py-3 font-extrabold">＋ Add a sale</Link>
+      </div>
       {!pricesOk && passTypes && (
-        <Card className="space-y-2 border-lime/40 text-sm">
+        <Card className="space-y-2 border-sand/40 text-sm">
           <div><b>Check your prices and nights.</b> They start as guesses ({passTypes.map((p) => `${p.name} ${formatINR(p.price)}`).join(' · ')}). Prices change a lot, so set them your way — you can also change the price on any sale from the Add screen.</div>
           <div className="flex flex-wrap gap-2">
-            <Link to="/more/passes" className="rounded-xl bg-lime px-4 py-2 font-bold text-black">Set prices</Link>
-            <Link to="/more/nights" className="rounded-xl border border-line px-4 py-2 font-semibold">Set nights</Link>
-            <button className="rounded-xl border border-line px-4 py-2" onClick={() => setSetting('pricesConfirmed', true)}>They’re right</button>
+            <Link to="/more/passes" className="btn-sand rounded-full px-4 py-2 font-bold">Set prices</Link>
+            <Link to="/more/nights" className="rounded-full border border-line px-4 py-2 font-semibold">Set nights</Link>
+            <button className="rounded-full border border-line px-4 py-2" onClick={() => setSetting('pricesConfirmed', true)}>They’re right</button>
           </div>
         </Card>
       )}
       {banners.map((b) => (
-        <Card key={b.key} className="border-amber-500/40 text-sm text-amber-200">
+        <Card key={b.key} tone="bark" className="text-sm text-cream">
           {b.to ? <Link to={b.to}>{b.text} <b>Back up →</b></Link> : b.text}
         </Card>
       ))}
-      {linesToPunch > 0 && <Link to="/punch" className="block rounded-2xl bg-lime px-4 py-3 text-center font-bold text-black">Punch in Showmates · {linesToPunch} to do →</Link>}
+      {linesToPunch > 0 && <Link to="/punch" className="btn-sand block rounded-full px-4 py-3 text-center font-extrabold">Punch in Showmates · {linesToPunch} to do →</Link>}
       <div className="grid grid-cols-3 gap-2">
-        <Link to="/sales?f=unpaid"><Card><div className="text-xs text-zinc-400">Dues</div><div className="text-xl font-bold text-amber-300">{formatINR(dues)}</div></Card></Link>
-        <Link to="/sales?f=unpunched"><Card><div className="text-xs text-zinc-400">Unpunched</div><div className="text-xl font-bold">{unpunched}</div></Card></Link>
-        <Card><div className="text-xs text-zinc-400">Collected</div><div className="text-xl font-bold text-lime">{formatINR(collected)}</div></Card>
+        <Link to="/sales?f=unpaid"><Card tone="bark" className="h-full"><div className="text-xs font-semibold opacity-80">Dues</div><div className="text-xl font-extrabold text-sand">{formatINR(dues)}</div></Card></Link>
+        <Link to="/sales?f=unpunched"><Card tone="sage" className="h-full"><div className="text-xs font-semibold opacity-80">Unpunched</div><div className="text-xl font-extrabold">{unpunched}</div></Card></Link>
+        <Card tone="deep" className="h-full"><div className="text-xs font-semibold opacity-80">Collected</div><div className="text-xl font-extrabold text-sand">{formatINR(collected)}</div></Card>
       </div>
-      <h2 className="font-semibold text-zinc-300">Nights</h2>
-      {sales.length === 0 && <Empty text="No sales yet. Tap + and paste a WhatsApp message.">{<Link to="/add" className="rounded-xl bg-lime px-5 py-3 font-bold text-black">Add first sale</Link>}</Empty>}
+      <h2 className="text-lg font-extrabold text-cream">Nights</h2>
+      {sales.length === 0 && <Empty text="No sales yet. Tap + and paste a WhatsApp message.">{<Link to="/add" className="btn-sand rounded-full px-5 py-3 font-extrabold">Add first sale</Link>}</Empty>}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {events.map((e) => {
           const es = active.filter((s) => s.sale.eventId === e.id);
@@ -69,8 +80,8 @@ export function Home() {
           const un = es.filter((s) => s.sale.punchState !== 'done').length;
           return (
             <Link key={e.id} to={`/sales?night=${e.id}`} className="shrink-0">
-              <Card className={`w-36 ${e.date === today ? 'border-lime' : ''}`}>
-                <div className="text-sm font-semibold">{formatDateLabel(e.date)}{e.date === today && <span className="ml-1 text-lime">• today</span>}</div>
+              <Card className={`w-36 ${e.date === today ? 'border-sand' : ''}`}>
+                <div className="text-sm font-semibold">{formatDateLabel(e.date)}{e.date === today && <span className="ml-1 text-sand">• today</span>}</div>
                 <div className="mt-2 text-2xl font-bold">{seats}<span className="ml-1 text-xs font-normal text-zinc-400">seats</span></div>
                 <div className="text-xs text-amber-300">{due ? `${formatINR(due)} due` : ' '}</div>
                 <div className="text-xs text-zinc-400">{un ? `${un} unpunched` : ' '}</div>

@@ -42,7 +42,7 @@ export function Punch() {
         <Empty text="Everything is punched 🎉" />
       ) : (
         <>
-          <a href={url || SHOWMATES_URL} target="_blank" rel="noreferrer" className="block min-h-14 rounded-2xl bg-lime px-4 py-4 text-center text-lg font-bold text-black">Open Showmates Punch ↗</a>
+          <a href={url || SHOWMATES_URL} target="_blank" rel="noreferrer" className="btn-sand block min-h-14 rounded-full px-4 py-4 text-center text-lg font-extrabold">Open Showmates Punch ↗</a>
           <p className="text-center text-sm text-zinc-400">{ordered.length} line{ordered.length === 1 ? '' : 's'} to punch · copy each field, paste it in Showmates, then tap Done</p>
           <Card className="space-y-2">
             <div className="flex items-start justify-between gap-2">

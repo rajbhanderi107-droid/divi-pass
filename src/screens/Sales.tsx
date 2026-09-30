@@ -41,7 +41,7 @@ export function Sales() {
         {FILTERS.map(([k, l]) => <Chip key={k} active={f === k} onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.set('f', k); return n; })}>{l}</Chip>)}
         {night && <Chip active onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.delete('night'); return n; })}>One night ✕</Chip>}
       </div>
-      {list.length === 0 && <Empty text={rows.length === 0 ? 'No sales yet.' : f === 'unpaid' ? 'Nothing due 🎉' : f === 'unpunched' ? 'All punched 🎉' : 'No sales match.'}><Link to="/add" className="rounded-xl bg-lime px-5 py-3 font-bold text-black">Add sale</Link></Empty>}
+      {list.length === 0 && <Empty text={rows.length === 0 ? 'No sales yet.' : f === 'unpaid' ? 'Nothing due 🎉' : f === 'unpunched' ? 'All punched 🎉' : 'No sales match.'}><Link to="/add" className="rounded-xl bg-sand px-5 py-3 font-bold text-ink">Add sale</Link></Empty>}
       <ul className="space-y-2">
         {list.map((r) => (
           <li key={r.sale.id}>

@@ -113,7 +113,7 @@ function Nights() {
       {events?.map((e) => (
         <Card key={e.id} className="space-y-2">
           <div className="flex items-center justify-between"><span>{formatDateLabel(e.date)} · {e.date}</span>
-            <span className="flex gap-3"><button className="text-lime" onClick={() => setOpen(open === e.id ? '' : e.id)}>{e.prices && Object.keys(e.prices).length ? 'Prices ●' : 'Prices'}</button><button className="text-red-400" onClick={() => deleteEvent(e.id).catch((x) => setErr(x.message))}>Delete</button></span></div>
+            <span className="flex gap-3"><button className="text-sand" onClick={() => setOpen(open === e.id ? '' : e.id)}>{e.prices && Object.keys(e.prices).length ? 'Prices ●' : 'Prices'}</button><button className="text-red-400" onClick={() => deleteEvent(e.id).catch((x) => setErr(x.message))}>Delete</button></span></div>
           {open === e.id && pts && <NightPrices ev={e} pts={pts} onErr={setErr} />}
         </Card>
       ))}
@@ -213,7 +213,7 @@ function Health() {
         {info?.used !== undefined && <div>Space used: {(info.used / 1024).toFixed(0)} KB</div>}
         <div>Version 1.0.0</div>
       </Card>
-      <Card className={info?.bad.length ? 'border-red-500/50' : ''}>{info?.bad.length ? info.bad.map((b) => <div key={b} className="text-red-300">{b}</div>) : <span className="text-lime">All records consistent ✓</span>}</Card>
+      <Card className={info?.bad.length ? 'border-red-500/50' : ''}>{info?.bad.length ? info.bad.map((b) => <div key={b} className="text-red-300">{b}</div>) : <span className="text-sand">All records consistent ✓</span>}</Card>
     </div>
   );
 }
@@ -241,7 +241,7 @@ function PhotoSetup() {
       <Field label="Access code"><input className={inputCls} type="password" autoCapitalize="none" value={t} onChange={(e) => setToken(e.target.value)} /></Field>
       <Card className="flex items-center justify-between gap-3">
         <div><div className="font-semibold">Save automatically</div><div className="text-sm text-zinc-400">When a photo is clear (phone, passes and night all read), add the sale right away. Anything unclear opens the form for you to check.</div></div>
-        <input type="checkbox" aria-label="Save automatically" className="h-7 w-7 shrink-0 accent-lime" checked={auto} onChange={(e) => setSetting('autoSavePhotos', e.target.checked)} />
+        <input type="checkbox" aria-label="Save automatically" className="h-7 w-7 shrink-0 accent-sand" checked={auto} onChange={(e) => setSetting('autoSavePhotos', e.target.checked)} />
       </Card>
       {msg && <p role="status" className="text-sm text-zinc-300">{msg}</p>}
       <div className="grid grid-cols-2 gap-2"><Btn kind="ghost" disabled={busy || !u || !t} onClick={test}>Test connection</Btn><Btn onClick={save}>Save</Btn></div>

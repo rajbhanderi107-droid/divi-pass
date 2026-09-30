@@ -50,10 +50,10 @@ export function CustomerDetail() {
   return (
     <div className="space-y-3"><Back to="/more/customers" />
       <h1 className="text-2xl font-bold">{c.name || formatPhone(c.phone)}</h1>
-      <div className="flex gap-4 text-sm"><a className="text-lime" href={`tel:${c.phone}`}>{formatPhone(c.phone)}</a><a className="text-lime" href={`https://wa.me/${phoneDigits(c.phone)}`} target="_blank" rel="noreferrer">WhatsApp</a></div>
+      <div className="flex gap-4 text-sm"><a className="text-sand" href={`tel:${c.phone}`}>{formatPhone(c.phone)}</a><a className="text-sand" href={`https://wa.me/${phoneDigits(c.phone)}`} target="_blank" rel="noreferrer">WhatsApp</a></div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <Card><div className="text-xs text-zinc-400">Bought</div><b>{formatINR(spent)}</b></Card>
-        <Card><div className="text-xs text-zinc-400">Paid</div><b className="text-lime">{formatINR(paid)}</b></Card>
+        <Card><div className="text-xs text-zinc-400">Paid</div><b className="text-sand">{formatINR(paid)}</b></Card>
         <Card><div className="text-xs text-zinc-400">Due</div><b className="text-amber-300">{formatINR(due)}</b></Card>
       </div>
       {mine.map((r) => (

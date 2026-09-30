@@ -19,7 +19,7 @@ export function Audit() {
       <h1 className="text-2xl font-bold">Change history</h1>
       <div className="flex gap-2 overflow-x-auto">{['all', 'sale', 'payment', 'expense', 'backup'].map((e) => <Chip key={e} active={ent === e} onClick={() => setEnt(e)}>{e}</Chip>)}</div>
       {shown.length === 0 && <Empty text="Nothing yet." />}
-      {shown.map((r) => <Card key={r.seq} className="py-2 text-sm"><div className="flex justify-between"><b>{r.entity} · {r.action}</b><span className="text-zinc-400">{formatDateTime(r.at)}</span></div>{r.ref && <Link to={`/sale/${r.entityId}`} className="text-lime">{r.ref}</Link>}</Card>)}
+      {shown.map((r) => <Card key={r.seq} className="py-2 text-sm"><div className="flex justify-between"><b>{r.entity} · {r.action}</b><span className="text-zinc-400">{formatDateTime(r.at)}</span></div>{r.ref && <Link to={`/sale/${r.entityId}`} className="text-sand">{r.ref}</Link>}</Card>)}
     </div>
   );
 }

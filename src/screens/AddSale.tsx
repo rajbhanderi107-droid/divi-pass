@@ -191,9 +191,9 @@ export function AddSale() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Add sale</h1>
       {last && (
-        <Card className="flex items-center justify-between gap-2 border-lime/50 text-sm">
+        <Card className="flex items-center justify-between gap-2 border-sand/50 text-sm">
           <span>✓ Added {last.text}</span>
-          <span className="flex shrink-0 gap-3"><Link to={`/sale/${last.id}`} className="font-semibold text-lime">View</Link><button className="text-red-400" onClick={() => { deleteSale(last.id); setLast(null); }}>Undo</button></span>
+          <span className="flex shrink-0 gap-3"><Link to={`/sale/${last.id}`} className="font-semibold text-sand">View</Link><button className="text-red-400" onClick={() => { deleteSale(last.id); setLast(null); }}>Undo</button></span>
         </Card>
       )}
       <Card className="space-y-2">
@@ -202,7 +202,7 @@ export function AddSale() {
         </Field>
         <input ref={fileInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onPhotos(e.target.files)} />
         <div className="flex gap-2">
-          <Btn className="flex-1" disabled={photoBusy} onClick={() => fileInput.current?.click()}>{photoBusy ? 'Reading photo…' : '📷 Add from photo'}</Btn>
+          <Btn className="flex-[2]" disabled={photoBusy} onClick={() => fileInput.current?.click()}>{photoBusy ? 'Reading photo…' : '📷 Add from photo'}</Btn>
           <Btn kind="ghost" className="flex-1" onClick={pasteFromClipboard}>Paste</Btn>
           {text && <Btn kind="ghost" onClick={reset}>Clear</Btn>}
         </div>
@@ -214,7 +214,7 @@ export function AddSale() {
           <div className="flex gap-2 overflow-x-auto">{drafts.map((d, i) => <Chip key={i} active={i === idx} onClick={() => { setIdx(i); applyDraft(d); }}>{i + 1}. {d.name ?? 'Sale'}</Chip>)}</div>
         )}
       </Card>
-      {warnList.length > 0 && <Card className="space-y-1 border-amber-500/40 text-sm text-amber-200">{warnList.map((w) => <div key={w}>⚠ {w}</div>)}</Card>}
+      {warnList.length > 0 && <Card tone="bark" className="space-y-1 text-sm text-cream">{warnList.map((w) => <div key={w}>⚠ {w}</div>)}</Card>}
 
       <Field group label="Night">
         <div className="flex gap-2 overflow-x-auto pb-1">{events.map((e) => <Chip key={e.id} active={e.id === eventId} onClick={() => setEventId(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
@@ -229,7 +229,7 @@ export function AddSale() {
                 <div className="flex items-center gap-3">
                   <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 rounded-xl border border-line text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
                   <span className="w-6 text-center text-xl font-bold">{qty[p.id] ?? 0}</span>
-                  <button aria-label={`More ${p.name}`} className="h-12 w-12 rounded-xl bg-lime text-2xl text-black" onClick={() => setStep(p.id, 1)}>+</button>
+                  <button aria-label={`More ${p.name}`} className="h-12 w-12 rounded-xl bg-sand text-2xl text-ink" onClick={() => setStep(p.id, 1)}>+</button>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export function AddSale() {
                 <input aria-label={`${p.name} price each`} className={`${inputCls} !min-h-10 w-28 py-1`} inputMode="numeric" placeholder={String(nightPrice(p))} value={priceOv[p.id] ?? ''}
                   onChange={(e) => setPriceOv((o) => ({ ...o, [p.id]: e.target.value }))} />
                 {priceOv[p.id]?.trim() && unitOf(p) !== nightPrice(p) && (
-                  <button className="text-sm text-lime underline" onClick={async () => {
+                  <button className="text-sm text-sand underline" onClick={async () => {
                     await savePassType({ id: p.id, name: p.name, kind: p.kind, seatsPerUnit: p.seatsPerUnit, listPrice: p.listPrice, price: unitOf(p), active: p.active });
                     setPriceOv((o) => ({ ...o, [p.id]: '' })); toast(`${p.name} default is now ${formatINR(unitOf(p))}`);
                   }}>Make default</button>

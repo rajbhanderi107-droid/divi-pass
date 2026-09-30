@@ -20,7 +20,7 @@ export function Gate() {
     <div className="space-y-3"><Link to="/more" className="text-zinc-400">← More</Link>
       <h1 className="text-2xl font-bold">Gate list</h1>
       <div className="flex gap-2 overflow-x-auto">{events.map((e) => <Chip key={e.id} active={e.id === cur?.id} onClick={() => setSel(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
-      <Card className="text-center"><div className="text-4xl font-bold text-lime" aria-label="Entered count">{inside}<span className="text-xl text-zinc-400"> / {seats}</span></div><div className="text-sm text-zinc-400">people inside · {seats - inside} still to come</div></Card>
+      <Card className="text-center"><div className="text-4xl font-bold text-sand" aria-label="Entered count">{inside}<span className="text-xl text-zinc-400"> / {seats}</span></div><div className="text-sm text-zinc-400">people inside · {seats - inside} still to come</div></Card>
       <input className={inputCls} type="search" placeholder="Search name, phone or DV-number" value={q} onChange={(e) => setQ(e.target.value)} />
       {shown.length === 0 && <Empty text="No buyers for this night." />}
       {shown.map((v) => {
@@ -33,7 +33,7 @@ export function Gate() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <button aria-label="One less" className="min-h-12 rounded-xl border border-line text-2xl disabled:opacity-30" disabled={e <= 0} onClick={() => setEntered(v.sale.id, e - 1)}>−</button>
-              <button aria-label="One more" className="min-h-12 rounded-xl bg-lime text-2xl text-black disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, e + 1)}>+</button>
+              <button aria-label="One more" className="min-h-12 rounded-xl bg-sand text-2xl text-ink disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, e + 1)}>+</button>
               <button className="min-h-12 rounded-xl border border-line text-sm font-semibold disabled:opacity-30" disabled={e >= v.sale.seats} onClick={() => setEntered(v.sale.id, v.sale.seats)}>All in</button>
             </div>
           </Card>
