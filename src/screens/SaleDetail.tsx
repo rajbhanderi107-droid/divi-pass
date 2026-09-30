@@ -12,6 +12,7 @@ import { formatPhone, phoneDigits } from '../domain/phone';
 import { amountDue, netPaid, payStatus } from '../domain/status';
 import { punchBlocks } from '../domain/showmates';
 import { statusLabel, statusTone } from './Sales';
+import { PunchFields } from '../components/PunchFields';
 
 export function SaleDetail() {
   const { id = '' } = useParams(); const nav = useNavigate(); const toast = useToast();
@@ -65,13 +66,14 @@ export function SaleDetail() {
           <h2 className="font-semibold text-zinc-300">Copy for Showmates</h2>
           {blocks.map((b) => (
             <Card key={b.index}>
-              <pre className="whitespace-pre-wrap text-sm text-zinc-200">{b.text}</pre>
+              <PunchFields fields={b.fields} />
               <div className="mt-3 flex gap-2">
-                <Btn kind="ghost" className="flex-1" onClick={async () => toast((await copyText(b.text)) ? 'Copied' : 'Copy failed')}>Copy</Btn>
+                <Btn kind="ghost" className="flex-1" onClick={async () => toast((await copyText(b.text)) ? 'All fields copied' : 'Copy failed')}>Copy all</Btn>
                 <Btn className="flex-1" onClick={() => setLinePunched(sale.id, b.index, true)}>Mark punched</Btn>
               </div>
             </Card>
           ))}
+          <Link to="/punch" className="block text-center text-lime underline">Punch several in a row →</Link>
           {blocks.length > 1 && <Btn kind="ghost" className="w-full" onClick={() => markAllPunched(sale.id)}>Mark all punched</Btn>}
         </div>
       )}

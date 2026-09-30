@@ -39,11 +39,11 @@ export function More() {
 }
 
 function Menu() {
-  const items = [['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
+  const items = [['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
-      {items.map(([to, l]) => <Link key={to} to={to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
+      {items.map(([to, l]) => <Link key={to} to={to === 'punch' ? '/punch' : to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
     </div>
   );
 }
@@ -161,8 +161,8 @@ function Passes() {
 }
 function PassRow({ p, onErr }: { p: import('../domain/types').PassType; onErr: (s: string) => void }) {
   const [name, setName] = useState(p.name); const [seats, setSeats] = useState(String(p.seatsPerUnit));
-  const [list, setList] = useState(String(p.listPrice)); const [price, setPrice] = useState(String(p.price));
-  const save = (patch: { active?: boolean } = {}) => savePassType({ id: p.id, name, kind: p.kind, seatsPerUnit: Number(seats), listPrice: parseRupees(list) ?? NaN, price: parseRupees(price) ?? NaN, active: patch.active ?? p.active }).then(() => onErr('')).catch((e) => onErr(e instanceof ValidationError ? e.message : 'Could not save'));
+  const [list, setList] = useState(String(p.listPrice)); const [price, setPrice] = useState(String(p.price)); const [sm, setSm] = useState(p.showmatesName ?? '');
+  const save = (patch: { active?: boolean } = {}) => savePassType({ id: p.id, name, kind: p.kind, seatsPerUnit: Number(seats), listPrice: parseRupees(list) ?? NaN, price: parseRupees(price) ?? NaN, active: patch.active ?? p.active, showmatesName: sm }).then(() => onErr('')).catch((e) => onErr(e instanceof ValidationError ? e.message : 'Could not save'));
   return (
     <Card className="space-y-2">
       <div className="grid grid-cols-3 gap-2">
@@ -173,6 +173,7 @@ function PassRow({ p, onErr }: { p: import('../domain/types').PassType; onErr: (
         <Field label="Showmates list ₹"><input className={inputCls} inputMode="numeric" value={list} onChange={(e) => setList(e.target.value)} onBlur={() => save()} /></Field>
         <Field label="Your price ₹"><input className={inputCls} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => save()} /></Field>
       </div>
+      <Field label="Ticket name in Showmates" hint="As in Showmates’ Ticket list, e.g. EARLY BIRD | SINGLE. Blank = use the name above."><input className={inputCls} value={sm} onChange={(e) => setSm(e.target.value)} onBlur={() => save()} /></Field>
       <Chip active={p.active} onClick={() => save({ active: !p.active })}>{p.active ? 'Shown when adding' : 'Hidden'}</Chip>
     </Card>
   );

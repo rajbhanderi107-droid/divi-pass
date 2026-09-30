@@ -15,7 +15,8 @@ test('paste → save, split payments, punch, backup round trip', async ({ page }
   await page.goto('/#/sales');
   await page.getByText('Vanshika Banodia').click();
   await expect(page.getByText('Paid', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Manual amount: 3250')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Manual amount' })).toBeVisible();
+  await expect(page.getByText('3250', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Mark punched' }).click();
   await expect(page.getByText('Copy for Showmates')).toHaveCount(0);
 
@@ -192,4 +193,51 @@ test('merge, screenshot, gate, expenses, reports/CSV, night price, customers, au
   await expect(page.getByText('sale · merge')).toBeVisible();
   await page.goto('/#/more/health');
   await expect(page.getByText('All records consistent ✓')).toBeVisible();
+});
+
+test('punch queue: fields copy one by one, ticket label, done/next/undo; prices banner is dismissible', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const add = async (pass: string, phone: string) => {
+    await page.goto('/#/add');
+    await page.getByPlaceholder(/Name :/).fill(`Name : Punch ${phone.slice(-2)}\nPass : ${pass}\nNo : ${phone}\nDate : 16 oct`);
+    await page.getByRole('button', { name: 'Save sale' }).click();
+    await expect(page.getByText(/Saved DV-/)).toBeVisible();
+  };
+  await add('1 couple + 2 solo', '9000000011');
+  await add('3 solo', '9000000012');
+
+  await page.goto('/#/');
+  await expect(page.getByText('Check your prices and nights.')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Punch in Showmates · 3 to do/ })).toBeVisible();
+  await page.getByRole('link', { name: /Punch in Showmates/ }).click();
+
+  await page.getByRole('button', { name: '16 Oct, Fri' }).click();
+  await expect(page.getByText('3 lines to punch')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Open Showmates Punch/ })).toHaveAttribute('href', 'https://seller.showmates.in/punch');
+  // first line: the couple, in Punch-form order
+  await expect(page.getByRole('heading', { name: 'Punch in Showmates' })).toBeVisible();
+  await expect(page.locator('div.text-xl.font-bold', { hasText: 'Punch 11' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy Manual amount' }).click();
+  await expect(page.getByText('Manual amount copied')).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1300');
+  await page.getByRole('button', { name: 'Copy Phone' }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('9000000011');
+
+  // ticket wording as in Showmates, for this sale
+  await page.getByLabel('Ticket name in Showmates').fill('EARLY BIRD | COUPLE');
+  await page.getByRole('button', { name: 'Use for this sale' }).click();
+  await page.getByRole('button', { name: 'Copy Ticket' }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('EARLY BIRD | COUPLE');
+
+  await page.getByRole('button', { name: 'Done — punched' }).click();
+  await expect(page.getByText('2 lines to punch')).toBeVisible();
+  await page.getByRole('button', { name: 'Skip' }).click();           // skipped goes to the back
+  await expect(page.locator('div.text-xl.font-bold', { hasText: 'Punch 12' })).toBeVisible();
+  await page.getByRole('button', { name: /Undo last/ }).click();
+  await expect(page.getByText('3 lines to punch')).toBeVisible();
+
+  // prices banner: dismiss
+  await page.goto('/#/');
+  await page.getByRole('button', { name: 'They’re right' }).click();
+  await expect(page.getByText('Check your prices and nights.')).toHaveCount(0);
 });

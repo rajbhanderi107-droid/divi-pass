@@ -87,7 +87,7 @@ export async function createSale(input: NewSale): Promise<Sale> {
       if (!pt) throw new ValidationError('Unknown pass type');
       const price = l.unitPrice ?? priceFor(pt, evRow);
       if (!Number.isSafeInteger(price) || price < 0) throw new ValidationError('Price must be a whole number');
-      lines.push({ passTypeId: pt.id, nameSnap: pt.name, seatsPerUnitSnap: pt.seatsPerUnit, listPriceSnap: pt.listPrice, unitPriceSnap: price, qty: l.qty });
+      lines.push({ passTypeId: pt.id, nameSnap: pt.name, seatsPerUnitSnap: pt.seatsPerUnit, listPriceSnap: pt.listPrice, unitPriceSnap: price, qty: l.qty, ticketSnap: pt.showmatesName?.trim() || undefined });
     }
     const total = computeTotal(lines, discount);
     if (total < 0) throw new ValidationError('Discount is more than the total');
@@ -268,14 +268,14 @@ export async function deleteEvent(id: string) {
   if (used) throw new ValidationError(`This night has ${used} sale${used === 1 ? '' : 's'} — move or delete them first`);
   await db.events.update(id, { deletedAt: now(), updatedAt: now() });
 }
-export async function savePassType(p: { id?: string; name: string; kind: 'solo' | 'couple' | 'other'; seatsPerUnit: number; listPrice: number; price: number; active: boolean }) {
+export async function savePassType(p: { id?: string; name: string; kind: 'solo' | 'couple' | 'other'; seatsPerUnit: number; listPrice: number; price: number; active: boolean; showmatesName?: string }) {
   if (!p.name.trim()) throw new ValidationError('Enter a name');
   for (const n of [p.listPrice, p.price]) if (!Number.isSafeInteger(n) || n < 0) throw new ValidationError('Prices must be whole rupees');
   if (!Number.isInteger(p.seatsPerUnit) || p.seatsPerUnit < 1) throw new ValidationError('Seats must be 1 or more');
-  const t = now();
-  if (p.id) { await db.passTypes.update(p.id, { ...p, name: p.name.trim(), updatedAt: t }); return; }
+  const t = now(); const showmatesName = p.showmatesName?.trim() || undefined;
+  if (p.id) { await db.passTypes.update(p.id, { ...p, name: p.name.trim(), showmatesName, updatedAt: t }); return; }
   const order = (await db.passTypes.count()) + 1;
-  await db.passTypes.add({ ...p, id: ulid(), name: p.name.trim(), aliases: [p.name.trim().toLowerCase()], sortOrder: order, createdAt: t, updatedAt: t });
+  await db.passTypes.add({ ...p, showmatesName, id: ulid(), name: p.name.trim(), aliases: [p.name.trim().toLowerCase()], sortOrder: order, createdAt: t, updatedAt: t });
 }
 
 export async function setNightPrices(eventId: string, prices: Record<string, number>) {
@@ -353,5 +353,16 @@ export async function attachToPayment(paymentId: string, blob: Blob) {
     await db.payments.update(paymentId, { attachmentId: id, updatedAt: now() });
     await audit('payment', paymentId, 'attach');
     return id;
+  });
+}
+
+/** Change the Showmates ticket label on one line of an existing sale (used when the punch screen's label is edited). */
+export function setLineTicket(saleId: string, index: number, ticket: string) {
+  return db.transaction('rw', [db.sales, db.auditLog], async () => {
+    const s = await db.sales.get(saleId);
+    if (!s || !s.lines[index]) throw new ValidationError('Line not found');
+    const lines = s.lines.map((l, i) => (i === index ? { ...l, ticketSnap: ticket.trim() || undefined } : l));
+    await db.sales.update(saleId, { lines, updatedAt: now() });
+    await audit('sale', saleId, 'update', { ticket: s.lines[index]!.ticketSnap }, { ticket: ticket.trim() });
   });
 }

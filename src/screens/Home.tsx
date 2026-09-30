@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useEvents, useSalesView, useSetting } from '../db/queries';
+import { useEvents, usePassTypes, useSalesView, useSetting } from '../db/queries';
 import { setSetting } from '../db/repo';
 import { Card, Empty } from '../components/ui';
 import { formatINR } from '../domain/money';
@@ -14,6 +14,8 @@ export function Home() {
   const lastBackup = useSetting<number | null>('lastBackupAt', null);
   const since = useSetting<number>('salesSinceBackup', 0);
   const persisted = useSetting<boolean | null>('storagePersisted', null);
+  const pricesOk = useSetting<boolean>('pricesConfirmed', false);
+  const passTypes = usePassTypes();
   const [today] = useState(() => istDate());
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export function Home() {
   const active = sales.filter((s) => !s.sale.cancelledAt);
   const dues = active.reduce((a, s) => a + s.due, 0);
   const unpunched = active.filter((s) => s.sale.punchState !== 'done').length;
+  const linesToPunch = active.reduce((a, s) => a + s.sale.lines.filter((l) => !l.punchedAt).length, 0);
   const collected = sales.reduce((a, s) => a + s.payments.reduce((x, p) => x + (p.kind === 'receipt' ? p.amount : -p.amount), 0), 0);
   const overdue = since >= 10 || (since > 0 && (!lastBackup || Date.now() - lastBackup > 2 * 86_400_000)) || (!lastBackup && sales.length > 0);
 
@@ -35,11 +38,22 @@ export function Home() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Divi Pass</h1>
+      {!pricesOk && passTypes && (
+        <Card className="space-y-2 border-lime/40 text-sm">
+          <div><b>Check your prices and nights.</b> They start as guesses ({passTypes.map((p) => `${p.name} ${formatINR(p.price)}`).join(' · ')}). Prices change a lot, so set them your way — you can also change the price on any sale from the Add screen.</div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/more/passes" className="rounded-xl bg-lime px-4 py-2 font-bold text-black">Set prices</Link>
+            <Link to="/more/nights" className="rounded-xl border border-line px-4 py-2 font-semibold">Set nights</Link>
+            <button className="rounded-xl border border-line px-4 py-2" onClick={() => setSetting('pricesConfirmed', true)}>They’re right</button>
+          </div>
+        </Card>
+      )}
       {banners.map((b) => (
         <Card key={b.key} className="border-amber-500/40 text-sm text-amber-200">
           {b.to ? <Link to={b.to}>{b.text} <b>Back up →</b></Link> : b.text}
         </Card>
       ))}
+      {linesToPunch > 0 && <Link to="/punch" className="block rounded-2xl bg-lime px-4 py-3 text-center font-bold text-black">Punch in Showmates · {linesToPunch} to do →</Link>}
       <div className="grid grid-cols-3 gap-2">
         <Link to="/sales?f=unpaid"><Card><div className="text-xs text-zinc-400">Dues</div><div className="text-xl font-bold text-amber-300">{formatINR(dues)}</div></Card></Link>
         <Link to="/sales?f=unpunched"><Card><div className="text-xs text-zinc-400">Unpunched</div><div className="text-xl font-bold">{unpunched}</div></Card></Link>

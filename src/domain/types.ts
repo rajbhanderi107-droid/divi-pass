@@ -5,12 +5,12 @@ export interface Base { id: string; createdAt: number; updatedAt: number; delete
 export interface EventNight extends Base { date: string; name: string; prices?: Record<string, number> }
 export interface PassType extends Base {
   name: string; kind: PassKind; seatsPerUnit: number; listPrice: number; price: number;
-  aliases: string[]; sortOrder: number; active: boolean;
+  aliases: string[]; sortOrder: number; active: boolean; showmatesName?: string;
 }
 export interface Customer extends Base { phone: string; name: string; nameLower: string }
 export interface SaleLine {
   passTypeId: string; nameSnap: string; seatsPerUnitSnap: number; listPriceSnap: number;
-  unitPriceSnap: number; qty: number; punchedAt?: number;
+  unitPriceSnap: number; qty: number; punchedAt?: number; ticketSnap?: string;
 }
 export type PunchState = 'none' | 'partial' | 'done';
 export interface Sale extends Base {

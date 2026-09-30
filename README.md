@@ -19,8 +19,11 @@ Works on your phone like an app. Data stays on your phone (no login, no server).
 - **Prices**: change the price for one sale on the Add screen, save it as the default, or set a different price for a single night (More → Nights → Prices).
 - Attach a payment **screenshot** to a payment (kept on the phone, not in backup files). **Change history** shows every edit.
 
+## Punch in Showmates
+Home → **Punch in Showmates** (or More): shows the next line to punch with every Showmates field (Date, Ticket, Quantity, Manual amount, Buyer name, Phone) and a Copy button on each, an **Open Showmates Punch** button, then **Done — punched** moves to the next. The ticket wording can be set per pass (More → Pass types → “Ticket name in Showmates”) or changed on the spot. Showmates has no way for other apps to fill their form, so this makes it one tap per field; it cannot punch for you.
+
 ## Starting setup (edit in More)
-Nights 11–19 Oct 2026 · Solo ₹650 (list ₹800) · Couple ₹1,300 (list ₹1,600, **assumed**) · Receivers: Bhanderi Raj, Dev Kinner Trivedi.
+These are only starting guesses, and Home shows a “Check your prices and nights” card until you confirm them. Nights 11–19 Oct 2026 · Solo ₹650 (list ₹800) · Couple ₹1,300 (list ₹1,600) · Receivers: Bhanderi Raj, Dev Kinner Trivedi.
 
 ## Develop
 ```
