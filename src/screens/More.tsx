@@ -112,7 +112,7 @@ function Passes() {
   if (!pts) return null;
   return (
     <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Pass types & prices</h1>
-      <p className="text-sm text-zinc-400">Changing a price only affects new sales. Old sales keep the price they were sold at.</p>
+      <p className="text-sm text-zinc-400">Set the price you actually charge. It can be different from the Showmates list price. Changing it only affects new sales. You can also change the price for a single sale on the Add screen.</p>
       {pts.map((p) => <PassRow key={p.id} p={p} onErr={setErr} />)}
       <Card className="space-y-2"><h2 className="font-semibold">Add pass type</h2>
         <input className={inputCls} placeholder="Name (e.g. Early Bird Solo)" value={n.name} onChange={(e) => setN({ ...n, name: e.target.value })} />
@@ -129,15 +129,20 @@ function Passes() {
   );
 }
 function PassRow({ p, onErr }: { p: import('../domain/types').PassType; onErr: (s: string) => void }) {
+  const [name, setName] = useState(p.name); const [seats, setSeats] = useState(String(p.seatsPerUnit));
   const [list, setList] = useState(String(p.listPrice)); const [price, setPrice] = useState(String(p.price));
-  const save = (patch: { active?: boolean } = {}) => savePassType({ id: p.id, name: p.name, kind: p.kind, seatsPerUnit: p.seatsPerUnit, listPrice: parseRupees(list) ?? NaN, price: parseRupees(price) ?? NaN, active: patch.active ?? p.active }).then(() => onErr('')).catch((e) => onErr(e instanceof ValidationError ? e.message : 'Could not save'));
+  const save = (patch: { active?: boolean } = {}) => savePassType({ id: p.id, name, kind: p.kind, seatsPerUnit: Number(seats), listPrice: parseRupees(list) ?? NaN, price: parseRupees(price) ?? NaN, active: patch.active ?? p.active }).then(() => onErr('')).catch((e) => onErr(e instanceof ValidationError ? e.message : 'Could not save'));
   return (
-    <Card className="space-y-2"><div className="flex justify-between"><b>{p.name}</b><span className="text-sm text-zinc-400">{p.seatsPerUnit} seat{p.seatsPerUnit > 1 ? 's' : ''}</span></div>
+    <Card className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="col-span-2"><Field label="Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} onBlur={() => save()} /></Field></div>
+        <Field label="Seats"><input className={inputCls} inputMode="numeric" value={seats} onChange={(e) => setSeats(e.target.value)} onBlur={() => save()} /></Field>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Showmates list ₹"><input className={inputCls} inputMode="numeric" value={list} onChange={(e) => setList(e.target.value)} onBlur={() => save()} /></Field>
         <Field label="Your price ₹"><input className={inputCls} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => save()} /></Field>
       </div>
-      <Chip active={p.active} onClick={() => save({ active: !p.active })}>{p.active ? 'Active' : 'Hidden'}</Chip>
+      <Chip active={p.active} onClick={() => save({ active: !p.active })}>{p.active ? 'Shown when adding' : 'Hidden'}</Chip>
     </Card>
   );
 }

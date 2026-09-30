@@ -42,3 +42,21 @@ test('paste → save, split payments, punch, backup round trip', async ({ page }
   await page.goto('/#/more/health');
   await expect(page.getByText('All records consistent ✓')).toBeVisible();
 });
+
+test('custom price per sale and make default', async ({ page }) => {
+  await page.goto('/#/add');
+  await page.getByLabel('More Solo').click();
+  await page.getByLabel('More Solo').click();
+  await expect(page.getByText('₹1,300').first()).toBeVisible();
+  await page.getByLabel('Solo price each').fill('500');
+  await expect(page.getByText('₹1,000').first()).toBeVisible();
+  await page.locator('input[placeholder="10-digit mobile"]').fill('9000000001');
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect(page.getByText(/Saved DV-\d+ · ₹1,000/)).toBeVisible();
+
+  await page.getByLabel('More Solo').click();
+  await page.getByLabel('Solo price each').fill('700');
+  await page.getByRole('button', { name: 'Make default' }).click();
+  await expect(page.getByText(/Solo default is now ₹700/)).toBeVisible();
+  await expect(page.getByLabel('Solo price each')).toHaveAttribute('placeholder', '700');
+});

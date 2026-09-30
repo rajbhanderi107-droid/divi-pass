@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
-import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, setSetting, ValidationError } from '../db/repo';
+import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, savePassType, setSetting, ValidationError } from '../db/repo';
 import { parseMessage, type Draft } from '../parser';
 import { Btn, Card, Chip, Field, inputCls, useToast } from '../components/ui';
 import { formatINR, parseRupees } from '../domain/money';
@@ -30,6 +30,7 @@ export function AddSale() {
   const [text, setText] = useState(''); const [drafts, setDrafts] = useState<Draft[]>([]); const [idx, setIdx] = useState(0);
   const [eventId, setEventId] = useState(''); const [qty, setQty] = useState<Record<string, number>>({});
   const [name, setName] = useState(''); const [phone, setPhone] = useState(''); const [manual, setManual] = useState('');
+  const [priceOv, setPriceOv] = useState<Record<string, string>>({});
   const [pays, setPays] = useState<PayRow[]>([]); const [warns, setWarns] = useState<string[]>([]);
   const [source, setSource] = useState<{ text?: string; hash?: string }>({});
   const [error, setError] = useState(''); const [dup, setDup] = useState(''); const [saving, setSaving] = useState(false);
@@ -42,7 +43,12 @@ export function AddSale() {
     setEventId((events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0]!).id);
   }, [events]);
 
-  const base = useMemo(() => (passTypes ?? []).reduce((s, p) => s + (qty[p.id] ?? 0) * p.price, 0), [passTypes, qty]);
+  const unitOf = (p: { id: string; price: number }) => {
+    const v = priceOv[p.id]; if (v === undefined || v.trim() === '') return p.price;
+    const n = parseRupees(v); return n === null ? p.price : n;
+  };
+  const priceBad = (passTypes ?? []).some((p) => priceOv[p.id]?.trim() && parseRupees(priceOv[p.id]!) === null);
+  const base = (passTypes ?? []).reduce((s, p) => s + (qty[p.id] ?? 0) * unitOf(p), 0);
   const seats = (passTypes ?? []).reduce((s, p) => s + (qty[p.id] ?? 0) * p.seatsPerUnit, 0);
   const manualVal = manual.trim() === '' ? null : parseRupees(manual);
   const manualBad = manual.trim() !== '' && (manualVal === null || manualVal > base);
@@ -50,13 +56,13 @@ export function AddSale() {
   const paidSum = pays.reduce((s, p) => s + (parseRupees(p.amount) ?? 0), 0);
 
   function reset() {
-    setText(''); setDrafts([]); setIdx(0); setQty({}); setName(''); setPhone(''); setManual(''); setPays([]); setWarns([]);
+    setText(''); setDrafts([]); setIdx(0); setQty({}); setName(''); setPhone(''); setManual(''); setPriceOv({}); setPays([]); setWarns([]);
     setSource({}); setError(''); setDup('');
   }
 
   function applyDraft(d: Draft) {
     if (!passTypes || !events) return;
-    setName(d.name ?? ''); setPhone(d.phone ? d.phone.slice(3) : ''); setManual(''); setDup(''); setError('');
+    setName(d.name ?? ''); setPhone(d.phone ? d.phone.slice(3) : ''); setManual(''); setPriceOv({}); setDup(''); setError('');
     const ev = d.eventDate ? events.find((e) => e.date === d.eventDate) : undefined;
     const w = [...d.warnings];
     if (ev) setEventId(ev.id); else if (d.eventDate) w.push(`Night ${d.eventDate} is not in your nights list — pick one below.`);
@@ -96,8 +102,9 @@ export function AddSale() {
     setError(''); setDup('');
     const ph = normalizePhone(phone);
     if (!ph) { setError('Enter a valid 10-digit mobile number.'); return; }
-    const lines = (passTypes ?? []).filter((p) => (qty[p.id] ?? 0) > 0).map((p) => ({ passTypeId: p.id, qty: qty[p.id]! }));
+    const lines = (passTypes ?? []).filter((p) => (qty[p.id] ?? 0) > 0).map((p) => ({ passTypeId: p.id, qty: qty[p.id]!, unitPrice: unitOf(p) }));
     if (!lines.length) { setError('Add at least one pass.'); return; }
+    if (priceBad) { setError('Price each must be a whole number of rupees.'); return; }
     if (manualBad) { setError(manualVal === null ? 'Amount must be a whole number.' : `Amount is above the price list total (${formatINR(base)}).`); return; }
     const payments = [];
     for (const p of pays) {
@@ -154,12 +161,25 @@ export function AddSale() {
       <Field group label="Passes">
         <div className="space-y-2">
           {passTypes.filter((p) => p.active).map((p) => (
-            <Card key={p.id} className="flex items-center justify-between py-2">
-              <div><div className="font-semibold">{p.name}</div><div className="text-xs text-zinc-400">{formatINR(p.price)} each{p.seatsPerUnit > 1 ? ` · ${p.seatsPerUnit} seats` : ''}</div></div>
-              <div className="flex items-center gap-3">
-                <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 rounded-xl border border-line text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
-                <span className="w-6 text-center text-xl font-bold">{qty[p.id] ?? 0}</span>
-                <button aria-label={`More ${p.name}`} className="h-12 w-12 rounded-xl bg-lime text-2xl text-black" onClick={() => setStep(p.id, 1)}>+</button>
+            <Card key={p.id} className="space-y-2 py-2">
+              <div className="flex items-center justify-between">
+                <div><div className="font-semibold">{p.name}</div><div className="text-xs text-zinc-400">{p.seatsPerUnit > 1 ? `${p.seatsPerUnit} seats each · ` : ''}list {formatINR(p.listPrice)}</div></div>
+                <div className="flex items-center gap-3">
+                  <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 rounded-xl border border-line text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
+                  <span className="w-6 text-center text-xl font-bold">{qty[p.id] ?? 0}</span>
+                  <button aria-label={`More ${p.name}`} className="h-12 w-12 rounded-xl bg-lime text-2xl text-black" onClick={() => setStep(p.id, 1)}>+</button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-zinc-400">Price each ₹</span>
+                <input aria-label={`${p.name} price each`} className={`${inputCls} !min-h-10 w-28 py-1`} inputMode="numeric" placeholder={String(p.price)} value={priceOv[p.id] ?? ''}
+                  onChange={(e) => setPriceOv((o) => ({ ...o, [p.id]: e.target.value }))} />
+                {priceOv[p.id]?.trim() && unitOf(p) !== p.price && (
+                  <button className="text-sm text-lime underline" onClick={async () => {
+                    await savePassType({ id: p.id, name: p.name, kind: p.kind, seatsPerUnit: p.seatsPerUnit, listPrice: p.listPrice, price: unitOf(p), active: p.active });
+                    setPriceOv((o) => ({ ...o, [p.id]: '' })); toast(`${p.name} default is now ${formatINR(unitOf(p))}`);
+                  }}>Make default</button>
+                )}
               </div>
             </Card>
           ))}
@@ -170,7 +190,7 @@ export function AddSale() {
         <input className={inputCls} inputMode="numeric" autoComplete="off" placeholder="10-digit mobile" value={phone} onChange={(e) => setPhone(e.target.value)} />
       </Field>
       <Field label="Buyer name (optional)"><input className={inputCls} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} /></Field>
-      <Field label="Manual amount (override)" hint={`Leave blank = ${formatINR(base)}`} error={manualBad ? (manualVal === null ? 'Whole rupees only' : `Above price list total ${formatINR(base)}`) : undefined}>
+      <Field label="Manual amount (override)" hint={`Final total for this sale. Blank = ${formatINR(base)}. To charge more, raise Price each above.`} error={manualBad ? (manualVal === null ? 'Whole rupees only' : `Above price list total ${formatINR(base)}`) : undefined}>
         <input className={inputCls} inputMode="numeric" placeholder="Leave blank = auto" value={manual} onChange={(e) => setManual(e.target.value)} />
       </Field>
 
