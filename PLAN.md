@@ -3,7 +3,13 @@
 Mobile-first, offline, installable app for the organiser of **Divya Achariya Divi** passes.
 Records every pass sold: who, which pass, what price, which night, who paid what, and whether it's punched into Showmates.
 
-Status: **awaiting approval — nothing built yet.**
+Status: **v1.0, v1.1 and v1.2 are built** (features 1–47), plus two additions asked for later:
+per-sale/default price editing and *Add from photo* (auto-saves when clear).
+
+Not built, on purpose:
+- Swipe actions on the sales list (feature 39): the same actions are one tap away on the sale page.
+- P4, only if you ask: sellers and commission (48), Gujarati / Hindi screens (49), password-protected backup and app lock (50).
+- Payment screenshots are kept on the phone but are not inside backup files (they would make backups very large).
 
 ---
 

@@ -1,0 +1,7 @@
+name = "divi-pass-photo-reader"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Your site, e.g. https://rajbhanderi107-droid.github.io  (origin only, no path). "*" allows any site.
+ALLOWED_ORIGIN = "*"
