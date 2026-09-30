@@ -6,6 +6,8 @@ import { addEvent, addReceiver, deleteEvent, restoreSale, savePassType, Validati
 import { applyImport, buildBackup, markBackedUp, parseBackup, previewImport, type BackupFile, type ImportPreview } from '../db/backup';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
 import { Btn, Card, Chip, Empty, Field, inputCls, useToast } from '../components/ui';
+import { setSetting } from '../db/repo';
+import { testReader } from '../lib/photo';
 import { formatINR, parseRupees } from '../domain/money';
 import { formatDateLabel, formatDateTime } from '../domain/time';
 import { computePunchState, computeSeats, computeTotal } from '../domain/status';
@@ -21,13 +23,14 @@ export function More() {
       <Route path="nights" element={<Nights />} />
       <Route path="passes" element={<Passes />} />
       <Route path="receivers" element={<Receivers />} />
+      <Route path="photo" element={<PhotoSetup />} />
       <Route path="health" element={<Health />} />
     </Routes>
   );
 }
 
 function Menu() {
-  const items = [['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['health', 'Health check']];
+  const items = [['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
@@ -182,6 +185,33 @@ function Health() {
         <div>Version 1.0.0</div>
       </Card>
       <Card className={info?.bad.length ? 'border-red-500/50' : ''}>{info?.bad.length ? info.bad.map((b) => <div key={b} className="text-red-300">{b}</div>) : <span className="text-lime">All records consistent ✓</span>}</Card>
+    </div>
+  );
+}
+
+function PhotoSetup() {
+  const toast = useToast();
+  const url0 = useSetting<string>('photoReaderUrl', ''); const tok0 = useSetting<string>('photoReaderToken', '');
+  const [url, setUrl] = useState<string>(); const [token, setToken] = useState<string>(); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
+  const u = url ?? url0; const t = token ?? tok0;
+  async function save() {
+    await setSetting('photoReaderUrl', u.trim()); await setSetting('photoReaderToken', t.trim()); toast('Saved');
+  }
+  async function test() {
+    setBusy(true); setMsg('');
+    try {
+      const r = await testReader({ url: u.trim(), token: t.trim() });
+      setMsg(r === 'ok' ? 'Connected ✓ — the reader accepted your access code.' : 'Reached the reader, but the access code is wrong.');
+    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Photo reader</h1>
+      <p className="text-sm text-zinc-400">Lets you tap <b>Add from photo</b> on the Add screen and pick a WhatsApp or payment screenshot. A small server reads it with Claude and the app fills the form. You still check it and tap Save. Setup steps are in <code>server/README.md</code> in the repo.</p>
+      <Field label="Reader link"><input className={inputCls} inputMode="url" autoCapitalize="none" placeholder="https://divi-pass-photo-reader.….workers.dev" value={u} onChange={(e) => setUrl(e.target.value)} /></Field>
+      <Field label="Access code"><input className={inputCls} type="password" autoCapitalize="none" value={t} onChange={(e) => setToken(e.target.value)} /></Field>
+      {msg && <p role="status" className="text-sm text-zinc-300">{msg}</p>}
+      <div className="grid grid-cols-2 gap-2"><Btn kind="ghost" disabled={busy || !u || !t} onClick={test}>Test connection</Btn><Btn onClick={save}>Save</Btn></div>
+      <p className="text-xs text-zinc-500">Photos are sent only to your own reader and Claude, and are not stored. The access code stays on this phone and is never included in backups.</p>
     </div>
   );
 }

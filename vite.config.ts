@@ -21,5 +21,5 @@ export default defineConfig({
       },
     }),
   ],
-  test: { environment: 'node', include: ['src/**/*.test.ts'], env: { TZ: 'UTC' } },
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'server/src/**/*.test.ts'], env: { TZ: 'UTC' } },
 });

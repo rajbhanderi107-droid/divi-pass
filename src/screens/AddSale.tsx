@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
+import { preparePhoto, readPhotoText, ReaderError } from '../lib/photo';
 import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, savePassType, setSetting, ValidationError } from '../db/repo';
 import { parseMessage, type Draft } from '../parser';
 import { Btn, Card, Chip, Field, inputCls, useToast } from '../components/ui';
@@ -34,6 +36,9 @@ export function AddSale() {
   const [pays, setPays] = useState<PayRow[]>([]); const [warns, setWarns] = useState<string[]>([]);
   const [source, setSource] = useState<{ text?: string; hash?: string }>({});
   const [error, setError] = useState(''); const [dup, setDup] = useState(''); const [saving, setSaving] = useState(false);
+  const readerUrl = useSetting<string>('photoReaderUrl', ''); const readerToken = useSetting<string>('photoReaderToken', '');
+  const [thumbs, setThumbs] = useState<string[]>([]); const [photoBusy, setPhotoBusy] = useState(false); const [photoErr, setPhotoErr] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
   const inited = useRef(false);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export function AddSale() {
 
   function reset() {
     setText(''); setDrafts([]); setIdx(0); setQty({}); setName(''); setPhone(''); setManual(''); setPriceOv({}); setPays([]); setWarns([]);
-    setSource({}); setError(''); setDup('');
+    setSource({}); setError(''); setDup(''); setThumbs((t) => { t.forEach(URL.revokeObjectURL); return []; }); setPhotoErr('');
   }
 
   function applyDraft(d: Draft) {
@@ -88,6 +93,25 @@ export function AddSale() {
     const ds = parseMessage(v, { season, prices: { solo: passTypes?.find((p) => p.kind === 'solo')?.price ?? 0, couple: passTypes?.find((p) => p.kind === 'couple')?.price ?? 0 } });
     setDrafts(ds); setIdx(0);
     if (ds[0]) applyDraft(ds[0]); else { setWarns(['Nothing recognised — fill the form below.']); }
+  }
+  async function onPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    setPhotoErr('');
+    if (!readerUrl || !readerToken) { setPhotoErr('setup'); return; }
+    setPhotoBusy(true);
+    try {
+      const texts: string[] = []; const previews: string[] = [];
+      for (const f of Array.from(files)) {
+        const ph = await preparePhoto(f); previews.push(ph.previewUrl);
+        const t = await readPhotoText({ url: readerUrl, token: readerToken }, ph.base64, ph.mediaType);
+        if (t.trim()) texts.push(t.trim());
+      }
+      setThumbs((old) => [...old, ...previews]);
+      if (!texts.length) { setPhotoErr('Nothing readable in that photo. Try a clearer screenshot or type it in.'); return; }
+      onPaste([text.trim(), ...texts].filter(Boolean).join('\n\n'));
+    } catch (e) {
+      setPhotoErr(e instanceof ReaderError ? e.message : 'Could not read that photo.');
+    } finally { setPhotoBusy(false); if (fileInput.current) fileInput.current.value = ''; }
   }
   async function pasteFromClipboard() {
     try { onPaste(await navigator.clipboard.readText()); } catch { toast('Clipboard blocked — paste into the box instead'); }
@@ -147,7 +171,16 @@ export function AddSale() {
         <Field label="Paste WhatsApp message">
           <textarea className={`${inputCls} py-2`} rows={3} value={text} placeholder={'Name : …\nPass : 2 solo\nNo : 99…\nDate : 16th october'} onChange={(e) => onPaste(e.target.value)} />
         </Field>
-        <div className="flex gap-2"><Btn kind="ghost" className="flex-1" onClick={pasteFromClipboard}>Paste from clipboard</Btn>{text && <Btn kind="ghost" onClick={reset}>Clear</Btn>}</div>
+        <input ref={fileInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onPhotos(e.target.files)} />
+        <div className="flex gap-2">
+          <Btn className="flex-1" disabled={photoBusy} onClick={() => fileInput.current?.click()}>{photoBusy ? 'Reading photo…' : '📷 Add from photo'}</Btn>
+          <Btn kind="ghost" className="flex-1" onClick={pasteFromClipboard}>Paste</Btn>
+          {text && <Btn kind="ghost" onClick={reset}>Clear</Btn>}
+        </div>
+        {photoErr === 'setup' && <p role="alert" className="text-sm text-amber-300">Photo reading is not set up yet. <Link to="/more/photo" className="underline">Set it up</Link></p>}
+        {photoErr && photoErr !== 'setup' && <p role="alert" className="text-sm text-red-300">{photoErr}</p>}
+        {thumbs.length > 0 && <div className="flex gap-2 overflow-x-auto">{thumbs.map((u) => <img key={u} src={u} alt="Photo being read" className="h-24 rounded-lg border border-line" />)}</div>}
+        {thumbs.length > 0 && <p className="text-xs text-zinc-400">Check the name, phone and UTR against the photo before saving.</p>}
         {drafts.length > 1 && (
           <div className="flex gap-2 overflow-x-auto">{drafts.map((d, i) => <Chip key={i} active={i === idx} onClick={() => { setIdx(i); applyDraft(d); }}>{i + 1}. {d.name ?? 'Sale'}</Chip>)}</div>
         )}

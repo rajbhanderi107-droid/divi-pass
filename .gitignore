@@ -3,3 +3,5 @@ dist
 *.log
 test-results
 playwright-report
+server/node_modules
+server/.wrangler

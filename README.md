@@ -10,7 +10,8 @@ Works on your phone like an app. Data stays on your phone (no login, no server).
    - `2600 + 650` in the message becomes two payments; add each UTR.
    - Or tap **Paid full · UPI / Cash**.
 3. **Sale** page: tick *Punched* per pass line; **Copy for Showmates** gives Date, Ticket, Quantity, **Manual amount** (your real price, not the ₹800 list price), Name, Phone.
-4. **More → Backup & restore**: back up often (share to WhatsApp / Drive). Restore merges; the newest edit of each record wins.
+4. **Add from photo** (optional): tap 📷 on the Add screen and pick a WhatsApp or payment screenshot; the form fills in and you check it. Needs the small reader in `server/` (see `server/README.md`), then More → Photo reader.
+5. **More → Backup & restore**: back up often (share to WhatsApp / Drive). Restore merges; the newest edit of each record wins.
 
 ## Starting setup (edit in More)
 Nights 11–19 Oct 2026 · Solo ₹650 (list ₹800) · Couple ₹1,300 (list ₹1,600, **assumed**) · Receivers: Bhanderi Raj, Dev Kinner Trivedi.

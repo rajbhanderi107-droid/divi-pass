@@ -12,6 +12,8 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run typecheck
+      - run: npm ci && npx tsc --noEmit
+        working-directory: server
       - run: TZ=UTC npm test
       - run: TZ=Asia/Kolkata npm test
       - run: npm run build
