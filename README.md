@@ -52,3 +52,7 @@ Stack: Vite, React, TypeScript, Tailwind, Dexie (IndexedDB), PWA. See `PLAN.md` 
 ## Sync (same sales on every phone)
 
 More → **Sync** connects the app to a private cloud table (Supabase edge function `sync`, guarded by a secret key). Works offline first; changes upload/download automatically when online. Last edit wins per row. Synced: nights, pass types, buyers, sales, payments, receivers, expenses. Not synced: payment screenshots, Inbox, settings. Open the app once with `#/more/sync?u=<function url>&k=<key>` to prefill the form.
+
+## Sellers
+
+More → *Sellers & who receives money*. Every sale records **Sold by**. Raj and Dev keep separate books; Divya is set as selling for Raj, so her sales appear in Raj's book and in her own. The switcher at the top of Home, Sales, Money, Reports and Gate picks whose book to show (Everyone shows all). Payments can be received by Raj directly or by Divya; Money shows how much Divya is holding for Raj. Older sales with no seller show under Everyone only. The chosen book is per phone and is not synced.

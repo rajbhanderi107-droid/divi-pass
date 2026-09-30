@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useEvents, useInbox, usePassTypes, useSalesView, useSetting } from '../db/queries';
@@ -52,6 +53,7 @@ export function Home() {
         </div>
         <Link to="/add" className="btn-sand relative mt-4 inline-block rounded-full px-6 py-3 font-extrabold">＋ Add a sale</Link>
       </div>
+      <BookBar />
       {(inbox.length > 0 || toCheck > 0) && (
         <Card tone="bark" className="space-y-2">
           <div className="font-extrabold">Needs you</div>

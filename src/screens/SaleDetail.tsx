@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addPayment, attachToPayment, cancelSale, clearNeedsCheck, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, mergeSales, restorePayment, restoreSale, setLinePunched, updateSale, ValidationError } from '../db/repo';
+import { addPayment, attachToPayment, cancelSale, clearNeedsCheck, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, mergeSales, restorePayment, restoreSale, setLinePunched, setSeller, updateSale, ValidationError } from '../db/repo';
 import { useEvents, useReceivers, useSalesView } from '../db/queries';
 import { compressForStorage } from '../lib/photo';
 import { Btn, Card, Chip, Empty, Field, Pill, Sheet, copyText, inputCls, useToast } from '../components/ui';
@@ -12,6 +12,7 @@ import { formatPhone, phoneDigits } from '../domain/phone';
 import { amountDue, netPaid, payStatus } from '../domain/status';
 import { punchBlocks } from '../domain/showmates';
 import { statusLabel, statusTone } from './Sales';
+import { relatedPeople } from '../domain/book';
 import { PunchFields } from '../components/PunchFields';
 
 export function SaleDetail() {
@@ -45,6 +46,12 @@ export function SaleDetail() {
         </div>
         <Pill tone={statusTone(status)}>{statusLabel[status]}</Pill>
       </div>
+
+      {receivers.length > 1 && (
+        <Field group label="Sold by">
+          <div className="flex gap-2 overflow-x-auto pb-1">{receivers.map((r) => <Chip key={r.id} active={sale.sellerId === r.id} onClick={() => setSeller(sale.id, sale.sellerId === r.id ? '' : r.id)}>{r.name}</Chip>)}</div>
+        </Field>
+      )}
 
       {sale.needsCheck?.length ? (
         <Card tone="bark" className="space-y-2 text-sm">
@@ -110,14 +117,14 @@ export function SaleDetail() {
       )}
       {sale.sourceText && <details className="text-sm text-zinc-400"><summary>Original message</summary><pre className="mt-2 whitespace-pre-wrap">{sale.sourceText}</pre></details>}
 
-      <PaySheet kind={paySheet} onClose={() => setPaySheet(null)} saleId={sale.id} suggested={paySheet === 'refund' ? paid : due} />
+      <PaySheet kind={paySheet} onClose={() => setPaySheet(null)} saleId={sale.id} suggested={paySheet === 'refund' ? paid : due} sellerId={sale.sellerId ?? ''} />
       <MergeSheet open={mergeOpen} onClose={() => setMergeOpen(false)} sale={sale} />
       <EditSheet open={editOpen} onClose={() => setEditOpen(false)} sale={sale} />
     </div>
   );
 }
 
-function PaySheet({ kind, onClose, saleId, suggested }: { kind: null | 'receipt' | 'refund'; onClose: () => void; saleId: string; suggested: number }) {
+function PaySheet({ kind, onClose, saleId, suggested, sellerId }: { kind: null | 'receipt' | 'refund'; onClose: () => void; saleId: string; suggested: number; sellerId: string }) {
   const receivers = useReceivers(); const [amount, setAmount] = useState(''); const [utr, setUtr] = useState('');
   const [rid, setRid] = useState(''); const [method, setMethod] = useState<'upi' | 'cash'>('upi'); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [dupSale, setDupSale] = useState('');
@@ -142,7 +149,7 @@ function PaySheet({ kind, onClose, saleId, suggested }: { kind: null | 'receipt'
         <Field label="Amount"><input className={inputCls} inputMode="numeric" placeholder={String(suggested)} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
         {kind === 'receipt' && <Field label="UTR (12 digits)"><input className={inputCls} inputMode="numeric" value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, '').slice(0, 12))} /></Field>}
         <div className="flex flex-wrap gap-2">
-          {receivers?.map((r) => <Chip key={r.id} active={rid === r.id} onClick={() => setRid(rid === r.id ? '' : r.id)}>{r.name}</Chip>)}
+          {receivers && [...receivers].sort((a, b) => Number(relatedPeople(receivers, sellerId).has(b.id)) - Number(relatedPeople(receivers, sellerId).has(a.id))).map((r) => <Chip key={r.id} active={rid === r.id} onClick={() => setRid(rid === r.id ? '' : r.id)}>{r.name}</Chip>)}
           <Chip active={method === 'cash' && !utr} onClick={() => setMethod(method === 'cash' ? 'upi' : 'cash')}>Cash</Chip>
         </div>
         {err && <p role="alert" className="text-red-300">{err} {dupSale && <Link className="underline" to={`/sale/${dupSale}`} onClick={onClose}>View</Link>}</p>}
@@ -211,7 +218,7 @@ function PaymentShot({ payment }: { payment: import('../domain/types').Payment }
 }
 
 function MergeSheet({ open, onClose, sale }: { open: boolean; onClose: () => void; sale: import('../domain/types').Sale }) {
-  const views = useSalesView(); const nav = useNavigate(); const toast = useToast(); const [err, setErr] = useState(''); const [sure, setSure] = useState('');
+  const views = useSalesView(true); const nav = useNavigate(); const toast = useToast(); const [err, setErr] = useState(''); const [sure, setSure] = useState('');
   if (!open || !views) return null;
   const others = views.filter((v) => v.sale.id !== sale.id && v.sale.customerId === sale.customerId && v.sale.eventId === sale.eventId && !v.sale.cancelledAt);
   return (

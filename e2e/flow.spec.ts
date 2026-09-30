@@ -373,3 +373,23 @@ test('sync: a sale added by Claude in the cloud appears on the phone, and phone 
   await page.getByRole('button', { name: 'Save sale' }).click();
   await expect.poll(() => [...rows.keys()].some((k) => k.startsWith('sales|') && k !== 'sales|sale-cloud'), { timeout: 15000 }).toBe(true);
 });
+
+test("sellers: Divya sells for Raj — Raj's book shows her sale, Dev's does not; money can go to Raj or Divya", async ({ page }) => {
+  await page.goto('/#/add');
+  await page.getByPlaceholder(/Name :/).fill('Name : Divyabuyer Test\nPass : 1 solo\nNo : 9000000077\nDate : 16 oct');
+  await page.getByRole('group', { name: 'Sold by' }).getByRole('button', { name: 'Divya Achariya' }).click();
+  await page.getByRole('button', { name: 'Paid full · UPI' }).click();
+  await page.getByRole('button', { name: 'Bhanderi Raj' }).last().click();   // money direct to Raj
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect(page.getByText(/Saved DV-0001/)).toBeVisible();
+
+  await page.goto('/#/sales');
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Bhanderi Raj' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Dev Kinner Trivedi' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toHaveCount(0);
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Divya Achariya' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Everyone' }).click();
+});

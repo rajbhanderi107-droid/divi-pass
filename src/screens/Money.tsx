@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { useState } from 'react';
 import { useWindow } from '../components/Windowed';
 import { Link } from 'react-router-dom';
@@ -28,9 +29,13 @@ export function Money() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Money</h1>
+      <BookBar />
       <h2 className="font-semibold text-zinc-300">Received by</h2>
       <Card className="space-y-2">
         {receivers.map((r) => <div key={r.id} className="flex justify-between"><span>{r.name}</span><b>{formatINR(byReceiver.get(r.id) ?? 0)}</b></div>)}
+        {receivers.filter((r) => r.agentOf && (byReceiver.get(r.id) ?? 0) !== 0).map((r) => (
+          <div key={'h' + r.id} className="flex justify-between text-sm text-sand"><span>{r.name} holds for {receivers.find((x) => x.id === r.agentOf)?.name ?? 'their principal'}</span><b>{formatINR(byReceiver.get(r.id) ?? 0)}</b></div>
+        ))}
         {unassigned !== 0 && <div className="flex justify-between text-zinc-400"><span>No receiver set</span><b>{formatINR(unassigned)}</b></div>}
       </Card>
       <h2 className="font-semibold text-zinc-300">Dues · {formatINR(dues.reduce((a, r) => a + r.due, 0))}</h2>

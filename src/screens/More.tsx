@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addEvent, addReceiver, deleteEvent, restoreSale, savePassType, setNightPrices, ValidationError } from '../db/repo';
+import { addEvent, addReceiver, deleteEvent, setAgentOf, restoreSale, savePassType, setNightPrices, ValidationError } from '../db/repo';
 import { applyImport, buildBackup, markBackedUp, parseBackup, previewImport, type BackupFile, type ImportPreview } from '../db/backup';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
 import { CustomerDetail, CustomerList } from './Customers';
@@ -43,7 +43,7 @@ export function More() {
 }
 
 function Menu() {
-  const items = [['sync', 'Sync — same sales everywhere'], ['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
+  const items = [['sync', 'Sync — same sales everywhere'], ['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Sellers & who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
@@ -186,8 +186,19 @@ function PassRow({ p, onErr }: { p: import('../domain/types').PassType; onErr: (
 function Receivers() {
   const rs = useReceivers(); const [n, setN] = useState('');
   return (
-    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Who receives money</h1>
-      {rs?.map((r) => <Card key={r.id}>{r.name}</Card>)}
+    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Sellers &amp; who receives money</h1>
+      <p className="text-sm text-zinc-400">Each person keeps their own book of sales. If someone sells on another person’s behalf, choose who — their sales then count in that person’s book, and the money can be received by either.</p>
+      {rs?.map((r) => (
+        <Card key={r.id} className="space-y-2">
+          <div className="font-semibold">{r.name}</div>
+          <Field group label={`${r.name.split(' ')[0]} sells for`}>
+            <div className="flex flex-wrap gap-2">
+              <Chip active={!r.agentOf} onClick={() => setAgentOf(r.id, '').catch(() => {})}>Themselves</Chip>
+              {rs.filter((o) => o.id !== r.id && !o.agentOf).map((o) => <Chip key={o.id} active={r.agentOf === o.id} onClick={() => setAgentOf(r.id, o.id).catch(() => {})}>{o.name}</Chip>)}
+            </div>
+          </Field>
+        </Card>
+      ))}
       <input className={inputCls} placeholder="Name (as on UPI)" value={n} onChange={(e) => setN(e.target.value)} />
       <Btn className="w-full" onClick={() => addReceiver(n).then(() => setN('')).catch(() => {})}>Add</Btn>
     </div>

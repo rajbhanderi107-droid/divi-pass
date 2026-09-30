@@ -10,7 +10,7 @@ import type { EventNight, PassType, Receiver, Sale } from '../domain/types';
 
 export type AutoMode = 'off' | 'clear' | 'always';
 export interface IngestCtx {
-  passTypes: PassType[]; events: EventNight[]; receivers: Receiver[]; lastReceiverId: string;
+  passTypes: PassType[]; events: EventNight[]; receivers: Receiver[]; lastReceiverId: string; sellerId?: string;
   season?: { from: string; to: string }; mode: AutoMode; fromPhoto: boolean; today?: string;
 }
 export interface Added { sale: Sale; summary: string; flags: string[]; paid: number }
@@ -102,7 +102,7 @@ export async function ingestText(text: string, c: IngestCtx): Promise<IngestResu
     const sale = await createSale({
       eventId: ev.id, name: plan.name, phone: plan.phone, lines, discount: 0, channel: 'whatsapp', sourceText: d.sourceText, sourceHash: d.sourceHash,
       payments: plan.pays.map((p) => ({ amount: p.amount, method: p.utr ? ('upi' as const) : p.method, utr: p.utr || undefined, receiverId: p.receiverId || undefined, paidAt: p.paidAt })),
-      needsCheck: dec.flags,
+      needsCheck: dec.flags, sellerId: c.sellerId || undefined,
     });
     const paid = plan.pays.reduce((a, p) => a + p.amount, 0);
     if (plan.pays[0]?.receiverId) await setSetting('lastReceiver', plan.pays[0].receiverId);

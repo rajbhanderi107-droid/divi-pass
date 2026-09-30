@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import { Link, useLocation } from 'react-router-dom';
 import { ingestText, type AutoMode } from '../lib/ingest';
-import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
+import { useBook, useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
+import { relatedPeople } from '../domain/book';
 import { preparePhoto, readPhotoText, ReaderError } from '../lib/photo';
 import { createSale, deleteSale, DuplicateUtrError, findNearDuplicate, findPaymentByUtr, findSaleByHash, removeInbox, savePassType, setSetting, ValidationError } from '../db/repo';
 import { parseMessage, type Draft } from '../parser';
@@ -32,6 +33,8 @@ export function AddSale() {
   const events = useEvents(); const passTypes = usePassTypes(); const receivers = useReceivers();
   const season = useSetting<{ from: string; to: string } | undefined>('season', undefined);
   const lastReceiver = useSetting<string>('lastReceiver', '');
+  const book = useBook(); const lastSeller = useSetting<string>('lastSeller', ''); const [pickedSeller, setPickedSeller] = useState('');
+  const sellerId = pickedSeller || book || lastSeller;
   const toast = useToast();
 
   const [text, setText] = useState(''); const [drafts, setDrafts] = useState<Draft[]>([]); const [idx, setIdx] = useState(0);
@@ -80,7 +83,7 @@ export function AddSale() {
 
   function reset() {
     setText(''); setDrafts([]); setIdx(0); setQty({}); setName(''); setPhone(''); setManual(''); setPriceOv({}); setPays([]); setWarns([]);
-    setSource({}); setError(''); setDup(''); setNote(''); setThumbs((t) => { t.forEach(URL.revokeObjectURL); return []; }); setPhotoErr('');
+    setPickedSeller(''); setSource({}); setError(''); setDup(''); setNote(''); setThumbs((t) => { t.forEach(URL.revokeObjectURL); return []; }); setPhotoErr('');
   }
 
   const planOf = (d: Draft, fromPhoto: boolean) => planFromDraft(d, { passTypes: passTypes ?? [], events: events ?? [], receivers: receivers ?? [], lastReceiverId: lastReceiver, fromPhoto });
@@ -107,13 +110,13 @@ export function AddSale() {
   async function runIngest(all: string, fromPhoto: boolean): Promise<boolean> {
     // read everything fresh from the database so an early paste/photo never races the screen's own loading
     const live = <T extends { deletedAt?: number }>(rows: T[]) => rows.filter((x) => !x.deletedAt);
-    const [pts, evs, rcs, modeRow, seasonRow, lastRcv] = await Promise.all([
+    const [pts, evs, rcs, modeRow, seasonRow, lastRcv, bookRow, lastSellerRow] = await Promise.all([
       db.passTypes.orderBy('sortOrder').toArray(), db.events.orderBy('date').toArray(), db.receivers.toArray(),
-      db.settings.get('autoAdd'), db.settings.get('season'), db.settings.get('lastReceiver'),
+      db.settings.get('autoAdd'), db.settings.get('season'), db.settings.get('lastReceiver'), db.settings.get('book'), db.settings.get('lastSeller'),
     ]);
     const m = ((modeRow?.value as AutoMode | undefined) ?? 'always');
     if (m === 'off') return false;
-    const r = await ingestText(all, { passTypes: live(pts), events: live(evs), receivers: live(rcs), lastReceiverId: (lastRcv?.value as string) ?? '', season: seasonRow?.value as { from: string; to: string } | undefined, mode: m, fromPhoto });
+    const r = await ingestText(all, { passTypes: live(pts), events: live(evs), receivers: live(rcs), lastReceiverId: (lastRcv?.value as string) ?? '', sellerId: pickedSeller || (bookRow?.value as string) || (lastSellerRow?.value as string) || '', season: seasonRow?.value as { from: string; to: string } | undefined, mode: m, fromPhoto });
     if (r.fallbackToForm) return false;
     reset();
     const bits: string[] = [];
@@ -158,7 +161,7 @@ export function AddSale() {
   const addPay = (full?: 'upi' | 'cash') => setPays((p) => [...p, { key: ++rowKey, amount: full ? String(Math.max(0, total - paidSum)) : '', utr: '', receiverId: lastReceiver, method: full ?? 'upi' }]);
   const patchPay = (key: number, patch: Partial<PayRow>) => setPays((p) => p.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  interface PersistArgs { ph: string; lines: { passTypeId: string; qty: number; unitPrice: number }[]; discount: number; payments: { amount: number; method: 'upi' | 'cash' | 'other'; utr?: string; receiverId?: string; paidAt?: number }[]; eventId: string; name: string; hash?: string; srcText?: string; total: number }
+  interface PersistArgs { ph: string; lines: { passTypeId: string; qty: number; unitPrice: number }[]; discount: number; payments: { amount: number; method: 'upi' | 'cash' | 'other'; utr?: string; receiverId?: string; paidAt?: number }[]; eventId: string; name: string; hash?: string; srcText?: string; total: number; sellerId?: string }
 
   /** Runs the duplicate checks, then saves. Returns the sale, or null when something needs the user's attention (message shown on screen). */
   async function persist(a: PersistArgs, force = false) {
@@ -171,7 +174,8 @@ export function AddSale() {
         if (near) { setDup(`Looks like a repeat: ${near.refNo} has the same number and amount from a few minutes ago.`); return null; }
       }
       for (const p of a.payments) if (p.utr) { const d = await findPaymentByUtr(p.utr); if (d) { setError(`UTR ${p.utr} is already recorded on another sale.`); return null; } }
-      const sale = await createSale({ eventId: a.eventId, name: a.name, phone: a.ph, lines: a.lines, discount: a.discount, channel: 'whatsapp', sourceText: a.srcText, sourceHash: a.hash, payments: a.payments });
+      const sale = await createSale({ eventId: a.eventId, name: a.name, phone: a.ph, lines: a.lines, discount: a.discount, channel: 'whatsapp', sourceText: a.srcText, sourceHash: a.hash, payments: a.payments, sellerId: a.sellerId || undefined });
+      if (a.sellerId) setSetting('lastSeller', a.sellerId);
       if (a.payments[0]?.receiverId) setSetting('lastReceiver', a.payments[0].receiverId);
       navigator.storage?.persist?.().then((ok) => setSetting('storagePersisted', ok)).catch(() => {});
       return sale;
@@ -200,7 +204,7 @@ export function AddSale() {
       payments.push({ amount: a, method: p.utr ? ('upi' as const) : p.method, utr: p.utr || undefined, receiverId: p.receiverId || undefined, paidAt: p.paidAt });
     }
     if (new Set(payments.map((p) => p.utr).filter(Boolean)).size < payments.filter((p) => p.utr).length) { setError('Same UTR entered twice.'); return; }
-    const sale = await persist({ ph, lines, discount: base - total, payments, eventId, name, hash: source.hash, srcText: source.text, total }, force);
+    const sale = await persist({ ph, lines, discount: base - total, payments, eventId, name, hash: source.hash, srcText: source.text, total, sellerId }, force);
     if (!sale) return;
     if (inboxId.current) { removeInbox(inboxId.current); inboxId.current = null; }
     toast(`Saved ${sale.refNo} · ${formatINR(sale.total)}`, { label: 'Undo', run: () => { deleteSale(sale.id); } });
@@ -209,7 +213,7 @@ export function AddSale() {
   }
 
   if (!events || !passTypes || !receivers) return null;
-  const warnList = warns.map(WARN_TEXT);
+  const warnList = warns.map(WARN_TEXT); const rel = relatedPeople(receivers, sellerId);
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Add sale</h1>
@@ -243,6 +247,12 @@ export function AddSale() {
         )}
       </Card>
       {warnList.length > 0 && <Card tone="bark" className="space-y-1 text-sm text-cream">{warnList.map((w) => <div key={w}>⚠ {w}</div>)}</Card>}
+
+      {receivers.length > 1 && (
+        <Field group label="Sold by">
+          <div className="flex gap-2 overflow-x-auto pb-1">{receivers.map((r) => <Chip key={r.id} active={sellerId === r.id} onClick={() => setPickedSeller(r.id)}>{r.name}</Chip>)}</div>
+        </Field>
+      )}
 
       <Field group label="Night">
         <div className="flex gap-2 overflow-x-auto pb-1">{events.map((e) => <Chip key={e.id} active={e.id === eventId} onClick={() => setEventId(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
@@ -293,7 +303,7 @@ export function AddSale() {
                 <input aria-label="UTR" className={inputCls} inputMode="numeric" placeholder="UTR (12 digits)" value={p.utr} onChange={(e) => patchPay(p.key, { utr: e.target.value.replace(/\D/g, '').slice(0, 12) })} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {receivers.map((r) => <Chip key={r.id} active={p.receiverId === r.id} onClick={() => patchPay(p.key, { receiverId: p.receiverId === r.id ? '' : r.id })}>{r.name}</Chip>)}
+                {[...receivers].sort((a, b) => Number(rel.has(b.id)) - Number(rel.has(a.id))).map((r) => <Chip key={r.id} active={p.receiverId === r.id} onClick={() => patchPay(p.key, { receiverId: p.receiverId === r.id ? '' : r.id })}>{r.name}</Chip>)}
                 <Chip active={p.method === 'cash' && !p.utr} onClick={() => patchPay(p.key, { method: p.method === 'cash' ? 'upi' : 'cash' })}>Cash</Chip>
                 <button className="ml-auto px-2 text-red-400" onClick={() => setPays((x) => x.filter((r) => r.key !== p.key))}>Remove</button>
               </div>

@@ -49,7 +49,7 @@ export interface NewSale {
   eventId: string; name?: string; phone: string;
   lines: { passTypeId: string; qty: number; unitPrice?: number }[];
   discount?: number; channel?: Channel; notes?: string; sourceText?: string; sourceHash?: string;
-  payments?: NewPayment[]; needsCheck?: string[];
+  payments?: NewPayment[]; needsCheck?: string[]; sellerId?: string;
 }
 
 function checkPayment(p: NewPayment) {
@@ -108,7 +108,7 @@ export async function createSale(input: NewSale): Promise<Sale> {
       id: ulid(), refNo: `DV-${String(counter).padStart(4, '0')}`, eventId: input.eventId, customerId: cust.id,
       lines, discount, total, seats: computeSeats(lines), channel: input.channel ?? 'whatsapp',
       punchState: computePunchState(lines), notes: input.notes, sourceText: input.sourceText, sourceHash: input.sourceHash,
-      createdAt: t, updatedAt: t, ...(input.needsCheck?.length ? { needsCheck: input.needsCheck } : {}),
+      createdAt: t, updatedAt: t, ...(input.needsCheck?.length ? { needsCheck: input.needsCheck } : {}), ...(input.sellerId ? { sellerId: input.sellerId } : {}),
     };
     await db.sales.add(sale);
     await audit('sale', sale.id, 'create', undefined, sale);
@@ -254,6 +254,24 @@ export async function addReceiver(name: string) {
   const row = { id: ulid(), name: n, nameLower: n.toLowerCase(), createdAt: t, updatedAt: t };
   await db.receivers.add(row);
   return row;
+}
+
+export async function setSeller(saleId: string, sellerId: string) {
+  await db.transaction('rw', [db.sales, db.auditLog], async () => {
+    const s = await db.sales.get(saleId);
+    if (!s || s.deletedAt) throw new ValidationError('Sale not found');
+    const next = { ...s, sellerId: sellerId || undefined, updatedAt: now() };
+    await db.sales.put(next);
+    await audit('sale', saleId, 'seller', s.sellerId, next.sellerId);
+  });
+}
+
+/** Says that `id` sells on behalf of `principalId` (or nobody, when blank). */
+export async function setAgentOf(id: string, principalId: string) {
+  const r = await db.receivers.get(id);
+  if (!r || r.deletedAt) throw new ValidationError('Person not found');
+  if (principalId === id) throw new ValidationError('Pick someone else');
+  await db.receivers.put({ ...r, agentOf: principalId || undefined, updatedAt: now() });
 }
 
 export async function addEvent(date: string, name = 'Divya Achariya Divi') {
