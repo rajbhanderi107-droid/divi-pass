@@ -14,7 +14,8 @@ Name : niyati patel
 Pass : 2 solo
 No : 9913803737
 Date : 16th october Friday
-Skip chat timestamps, read ticks, contact names, and the header line.
+Skip chat timestamps, read ticks, contact names, and the quoted header ("Divya Achariya Divi Pass", "Photo").
+The message may show a small payment screenshot at its top (a quoted photo). If its rupee amount is clearly legible, add a final line with just the amount, e.g. ₹1,300. Add "Paid to <name>", the date and "UPI transaction ID <digits>" only if every character is clearly legible at that size; otherwise leave those lines out. Never guess from a tiny thumbnail.
 2) UPI payment card (Google Pay, PhonePe, Paytm, bank app). Output exactly:
 ₹<amount>
 Paid to <name>          (or "Received from <name>" when the card says received / from)

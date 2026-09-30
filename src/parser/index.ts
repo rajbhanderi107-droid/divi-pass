@@ -183,6 +183,7 @@ function parseBlock(lines: string[], opt: Required<Pick<ParseOptions, 'today'>> 
       sawSale = true; const r = scanPhones(m[1]!, true);
       addPhones(r.phones, 'H');
       for (const bad of r.invalid) d.warnings.push(`invalid-phone:${bad}`);
+      if (!r.phones.length && !r.invalid.length && m[1]!.trim()) d.warnings.push(`invalid-phone:${m[1]!.trim()}`);
       if (r.phones.length > 1) d.warnings.push('multiple-phones');
       continue;
     }

@@ -192,6 +192,7 @@ function Health() {
 function PhotoSetup() {
   const toast = useToast();
   const url0 = useSetting<string>('photoReaderUrl', ''); const tok0 = useSetting<string>('photoReaderToken', '');
+  const auto = useSetting<boolean>('autoSavePhotos', true);
   const [url, setUrl] = useState<string>(); const [token, setToken] = useState<string>(); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
   const u = url ?? url0; const t = token ?? tok0;
   async function save() {
@@ -209,6 +210,10 @@ function PhotoSetup() {
       <p className="text-sm text-zinc-400">Lets you tap <b>Add from photo</b> on the Add screen and pick a WhatsApp or payment screenshot. A small server reads it with Claude and the app fills the form. You still check it and tap Save. Setup steps are in <code>server/README.md</code> in the repo.</p>
       <Field label="Reader link"><input className={inputCls} inputMode="url" autoCapitalize="none" placeholder="https://divi-pass-photo-reader.….workers.dev" value={u} onChange={(e) => setUrl(e.target.value)} /></Field>
       <Field label="Access code"><input className={inputCls} type="password" autoCapitalize="none" value={t} onChange={(e) => setToken(e.target.value)} /></Field>
+      <Card className="flex items-center justify-between gap-3">
+        <div><div className="font-semibold">Save automatically</div><div className="text-sm text-zinc-400">When a photo is clear (phone, passes and night all read), add the sale right away. Anything unclear opens the form for you to check.</div></div>
+        <input type="checkbox" aria-label="Save automatically" className="h-7 w-7 shrink-0 accent-lime" checked={auto} onChange={(e) => setSetting('autoSavePhotos', e.target.checked)} />
+      </Card>
       {msg && <p role="status" className="text-sm text-zinc-300">{msg}</p>}
       <div className="grid grid-cols-2 gap-2"><Btn kind="ghost" disabled={busy || !u || !t} onClick={test}>Test connection</Btn><Btn onClick={save}>Save</Btn></div>
       <p className="text-xs text-zinc-500">Photos are sent only to your own reader and Claude, and are not stored. The access code stays on this phone and is never included in backups.</p>

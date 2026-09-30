@@ -91,10 +91,38 @@ test('add from photo: reader text fills sale + payment', async ({ page }) => {
 
   await page.goto('/#/add');
   await page.locator('input[type=file]').setInputFiles({ name: 's.png', mimeType: 'image/png', buffer: PNG });
-  await expect(page.locator('input[placeholder="10-digit mobile"]')).toHaveValue('9913803737');
-  await expect(page.getByLabel('UTR').first()).toHaveValue('627325985997');
-  await expect(page.getByAltText('Photo being read')).toBeVisible();
+  // clear photo → saved directly, no review step
+  await expect(page.getByText(/✓ Added DV-0001 · Niyati Patel · 2 Solo · 16 Oct, Fri · ₹1,300 · paid/)).toBeVisible();
   expect(sawToken).toBe('secret-code');
-  await page.getByRole('button', { name: 'Save sale' }).click();
-  await expect(page.getByText(/Saved DV-\d+ · ₹1,300/)).toBeVisible();
+  await expect(page.locator('input[placeholder="10-digit mobile"]')).toHaveValue('');
+  await page.getByRole('link', { name: 'View' }).click();
+  await expect(page.getByText('UTR 627325985997')).toBeVisible();
+  await expect(page.getByText(/· to Bhanderi Raj/)).toBeVisible();
+});
+
+test('photo saves directly: the WhatsApp message with a payment thumbnail; unclear photos open the form instead', async ({ page }) => {
+  const texts = [
+    'Name ; niyati patel\nPass : 2 solo\nNo : 9913803737\nDate : 16th october Friday\n₹1,300',
+    'Name : Ravi\nPass : 2 solo\nNo : 99138?3737\nDate : 16th october Friday',
+  ];
+  let n = 0;
+  await page.route('https://reader.test/**', (route) => route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, json: { text: texts[n++] } }));
+  await page.goto('/#/more/photo');
+  await page.getByPlaceholder(/workers\.dev/).fill('https://reader.test/read');
+  await page.locator('input[type=password]').fill('c');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  await page.goto('/#/add');
+  await page.locator('input[type=file]').setInputFiles({ name: 's.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByText(/✓ Added DV-0001 · Niyati Patel · 2 Solo · 16 Oct, Fri · ₹1,300 · paid/)).toBeVisible();
+  await page.getByRole('link', { name: 'View' }).click();
+  await expect(page.getByText('Paid', { exact: true }).first()).toBeVisible();
+
+  // unreadable digit in the phone → nothing saved, form is filled for review
+  await page.goto('/#/add');
+  await page.locator('input[type=file]').setInputFiles({ name: 's.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByText(/Phone 99138\?3737|not a valid mobile/)).toBeVisible();
+  await expect(page.getByText(/✓ Added/)).toHaveCount(0);
+  await page.goto('/#/sales');
+  await expect(page.getByText('Ravi')).toHaveCount(0);
 });
