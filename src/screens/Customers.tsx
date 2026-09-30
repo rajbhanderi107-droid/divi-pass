@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { useWindow } from '../components/Windowed';
 import { Link, useParams } from 'react-router-dom';
 import { useSalesView } from '../db/queries';
 import { Card, Empty, Pill, inputCls } from '../components/ui';
@@ -12,6 +13,7 @@ const Back = ({ to = '/more' }: { to?: string }) => <Link to={to} className="tex
 
 export function CustomerList() {
   const rows = useSalesView(); const [q, setQ] = useState('');
+  const dq = useDeferredValue(q);
   const list = useMemo(() => {
     const m = new Map<string, { id: string; name: string; phone: string; sales: number; spent: number; due: number; last: number }>();
     for (const r of rows ?? []) {
@@ -20,15 +22,16 @@ export function CustomerList() {
       if (!r.sale.cancelledAt) { c.sales++; c.spent += r.sale.total; c.due += r.due; }
       c.last = Math.max(c.last, r.sale.createdAt); m.set(r.customer.id, c);
     }
-    const ql = q.trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
+    const ql = dq.trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
     return [...m.values()].filter((c) => !ql || c.name.toLowerCase().includes(ql) || (qd.length >= 3 && c.phone.includes(qd))).sort((a, b) => b.last - a.last);
-  }, [rows, q]);
+  }, [rows, dq]);
+  const { count, more } = useWindow(list.length, dq);
   if (!rows) return null;
   return (
     <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Customers</h1>
       <input className={inputCls} type="search" placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
       {list.length === 0 && <Empty text="No customers yet." />}
-      {list.map((c) => (
+      {list.slice(0, count).map((c) => (
         <Link key={c.id} to={`/more/customers/${c.id}`}>
           <Card className="mb-2 flex items-center justify-between">
             <div><div className="font-semibold">{c.name || formatPhone(c.phone)}</div><div className="text-xs text-zinc-400">{formatPhone(c.phone)} · {c.sales} sale{c.sales === 1 ? '' : 's'}{c.sales > 1 ? ' · repeat buyer' : ''}</div></div>
@@ -36,6 +39,7 @@ export function CustomerList() {
           </Card>
         </Link>
       ))}
+      {more}
     </div>
   );
 }

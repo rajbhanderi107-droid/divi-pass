@@ -4,13 +4,14 @@
 
 :root { color-scheme: dark; --forest: #0e3a30; }
 html, body, #root { min-height: 100dvh; }
+html { background: #0a2b24; overscroll-behavior-y: none; }
 body {
   color: #f6e6cc; -webkit-tap-highlight-color: transparent;
   font-family: Nunito, ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background:
     radial-gradient(900px 420px at 92% -8%, rgba(226, 170, 120, .20), transparent 62%),
-    linear-gradient(180deg, #17564a 0%, #0e3a30 38%, #0a2b24 100%) fixed;
-  background-color: #0e3a30;
+    linear-gradient(180deg, #17564a 0%, #0e3a30 38%, #0a2b24 100%);
+  background-color: #0e3a30; background-repeat: no-repeat; background-size: 100% 100%;
 }
 /* soft sand-ripple texture, like the board's green ground */
 body::before {
@@ -18,6 +19,9 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90' viewBox='0 0 160 90'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M0 20 C25 4 55 36 80 20 S135 4 160 20'/%3E%3Cpath d='M0 50 C25 34 55 66 80 50 S135 34 160 50'/%3E%3Cpath d='M0 80 C25 64 55 96 80 80 S135 64 160 80'/%3E%3C/g%3E%3C/svg%3E");
 }
 #root { position: relative; z-index: 1; }
+/* rows off screen are skipped by the browser until they scroll near */
+.row-cv { content-visibility: auto; contain-intrinsic-size: auto 104px; }
+button, a { touch-action: manipulation; }
 input, textarea, select { font-size: 16px; }
 .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 5rem); }
 h1, h2 { letter-spacing: -.01em; }

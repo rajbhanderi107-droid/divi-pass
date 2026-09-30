@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
+import { useWindow } from '../components/Windowed';
 import { Link } from 'react-router-dom';
 import { setEntered } from '../db/repo';
 import { useEvents, useSalesView } from '../db/queries';
 import { Card, Chip, Empty, inputCls } from '../components/ui';
 import { formatDateLabel, istDate } from '../domain/time';
 import { formatPhone } from '../domain/phone';
+import type { SaleView } from '../db/queries';
+import type { EventNight } from '../domain/types';
 
 export function Gate() {
-  const events = useEvents(); const views = useSalesView(); const [sel, setSel] = useState(''); const [q, setQ] = useState('');
+  const events = useEvents(); const views = useSalesView();
   if (!events || !views) return null;
+  return <GateList events={events} views={views} />;
+}
+
+function GateList({ events, views }: { events: EventNight[]; views: SaleView[] }) {
+  const [sel, setSel] = useState(''); const [q, setQ] = useState('');
   const today = istDate();
   const cur = events.find((e) => e.id === sel) ?? events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0];
   const list = views.filter((v) => cur && v.sale.eventId === cur.id && !v.sale.cancelledAt);
   const seats = list.reduce((a, v) => a + v.sale.seats, 0); const inside = list.reduce((a, v) => a + (v.sale.entered ?? 0), 0);
-  const ql = q.trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
+  const ql = useDeferredValue(q).trim().toLowerCase(); const qd = ql.replace(/\D/g, '');
   const shown = list.filter((v) => !ql || (v.customer?.nameLower ?? '').includes(ql) || (qd.length >= 3 && v.customer?.phone.includes(qd)) || v.sale.refNo.toLowerCase().includes(ql))
     .sort((a, b) => (a.customer?.nameLower ?? '').localeCompare(b.customer?.nameLower ?? ''));
+  const { count, more } = useWindow(shown.length, `${cur?.id}|${ql}`);
   return (
     <div className="space-y-3"><Link to="/more" className="text-zinc-400">← More</Link>
       <h1 className="text-2xl font-bold">Gate list</h1>
@@ -23,7 +32,7 @@ export function Gate() {
       <Card className="text-center"><div className="text-4xl font-bold text-sand" aria-label="Entered count">{inside}<span className="text-xl text-zinc-400"> / {seats}</span></div><div className="text-sm text-zinc-400">people inside · {seats - inside} still to come</div></Card>
       <input className={inputCls} type="search" placeholder="Search name, phone or DV-number" value={q} onChange={(e) => setQ(e.target.value)} />
       {shown.length === 0 && <Empty text="No buyers for this night." />}
-      {shown.map((v) => {
+      {shown.slice(0, count).map((v) => {
         const e = v.sale.entered ?? 0;
         return (
           <Card key={v.sale.id} className="space-y-2">
@@ -39,6 +48,7 @@ export function Gate() {
           </Card>
         );
       })}
+      {more}
     </div>
   );
 }
