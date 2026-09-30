@@ -331,3 +331,45 @@ test('long lists draw a page at a time and load more while scrolling', async ({ 
     await page.goto('/' + hash2); await expect(page.getByRole('heading', { name: heading })).toBeVisible();
   }
 });
+
+test('sync: a sale added by Claude in the cloud appears on the phone, and phone sales reach the cloud', async ({ page }) => {
+  // stand-in for the cloud function: last writer wins, cursor of changes (same rules as the real one)
+  const rows = new Map<string, { row: any; seq: number }>(); let seq = 0; const seen: string[] = [];
+  await page.route('https://sync.test/**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' } });
+    const b = req.postDataJSON() as { key: string; since: number; push: any[] };
+    const h = { 'access-control-allow-origin': '*' };
+    if (b.key !== 'right-key') return route.fulfill({ status: 401, headers: h, json: { error: 'Wrong sync key' } });
+    for (const r of b.push) { const k = r.t + '|' + r.id; const c = rows.get(k); if (!c || c.row.updatedAt < r.updatedAt) { rows.set(k, { row: r, seq: ++seq }); seen.push(r.t); } }
+    const list = [...rows.values()].filter((x) => x.seq > b.since).sort((a, c) => a.seq - c.seq);
+    await route.fulfill({ status: 200, headers: h, json: { rows: list.map((x) => x.row), cursor: list.length ? list[list.length - 1].seq : b.since, more: false } });
+  });
+
+  await page.goto('/#/more/sync');
+  await page.getByPlaceholder(/supabase\.co/).fill('https://sync.test/sync');
+  await page.locator('input[type=password]').fill('wrong');
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByText('Wrong sync key').first()).toBeVisible();
+  await page.locator('input[type=password]').fill('right-key');
+  await page.getByRole('button', { name: /Connect|Reconnect/ }).first().click();
+  await expect(page.getByText('Up to date')).toBeVisible();
+  expect(seen).toContain('events');                                        // the phone's nights reached the cloud
+
+  // Claude adds a sale straight into the cloud (what the chat does), using the shared night and pass ids
+  const t = Date.now() + 1000;
+  const cust = { id: 'cust-cloud', phone: '+919913803737', name: 'Niyati Patel', nameLower: 'niyati patel', createdAt: t, updatedAt: t };
+  const sale = { id: 'sale-cloud', refNo: 'DV-CLOUD', eventId: 'ev-2026-10-16', customerId: 'cust-cloud', lines: [{ passTypeId: 'pt-solo', nameSnap: 'Solo', seatsPerUnitSnap: 1, listPriceSnap: 800, unitPriceSnap: 650, qty: 2 }], discount: 0, total: 1300, seats: 2, channel: 'whatsapp', punchState: 'none', createdAt: t, updatedAt: t };
+  rows.set('customers|cust-cloud', { row: { t: 'customers', id: 'cust-cloud', data: cust, updatedAt: t }, seq: ++seq });
+  rows.set('sales|sale-cloud', { row: { t: 'sales', id: 'sale-cloud', data: sale, updatedAt: t }, seq: ++seq });
+  await page.getByRole('button', { name: 'Sync now' }).click();
+  await page.goto('/#/sales');
+  await expect(page.getByText('Niyati Patel')).toBeVisible();
+  await expect(page.getByText('DV-CLOUD')).toBeVisible();
+
+  // a sale added on the phone reaches the cloud by itself
+  await page.goto('/#/add');
+  await page.getByPlaceholder(/Name :/).fill('Name : Local Buyer\nPass : 1 solo\nNo : 9000000055\nDate : 16 oct');
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect.poll(() => [...rows.keys()].some((k) => k.startsWith('sales|') && k !== 'sales|sale-cloud'), { timeout: 15000 }).toBe(true);
+});

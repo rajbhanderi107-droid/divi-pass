@@ -48,3 +48,7 @@ Stack: Vite, React, TypeScript, Tailwind, Dexie (IndexedDB), PWA. See `PLAN.md` 
 - A UTR can only be used once. Payment status (paid / partial / due) is always calculated, never typed.
 - Every save is all-or-nothing and logged; deletes go to Trash for 30 days.
 - The pass price is copied onto each sale, so changing prices never changes old sales.
+
+## Sync (same sales on every phone)
+
+More → **Sync** connects the app to a private cloud table (Supabase edge function `sync`, guarded by a secret key). Works offline first; changes upload/download automatically when online. Last edit wins per row. Synced: nights, pass types, buyers, sales, payments, receivers, expenses. Not synced: payment screenshots, Inbox, settings. Open the app once with `#/more/sync?u=<function url>&k=<key>` to prefill the form.

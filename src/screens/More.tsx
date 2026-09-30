@@ -9,6 +9,8 @@ import { CustomerDetail, CustomerList } from './Customers';
 import { Reports } from './Reports';
 import { Gate } from './Gate';
 import { Audit } from './Audit';
+import { connectSync, disconnectSync, syncNow, useSyncStatus } from '../sync';
+import { useSearchParams } from 'react-router-dom';
 import { Btn, Card, Chip, Empty, Field, inputCls, useToast } from '../components/ui';
 import { setSetting } from '../db/repo';
 import { testReader } from '../lib/photo';
@@ -33,6 +35,7 @@ export function More() {
       <Route path="gate" element={<Gate />} />
       <Route path="audit" element={<Audit />} />
       <Route path="auto" element={<AutoSetup />} />
+      <Route path="sync" element={<SyncSetup />} />
       <Route path="photo" element={<PhotoSetup />} />
       <Route path="health" element={<Health />} />
     </Routes>
@@ -40,7 +43,7 @@ export function More() {
 }
 
 function Menu() {
-  const items = [['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
+  const items = [['sync', 'Sync — same sales everywhere'], ['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
@@ -261,6 +264,31 @@ function AutoSetup() {
           <Card tone={mode === k ? 'sand' : undefined} className="space-y-1"><div className="font-extrabold">{mode === k ? '● ' : '○ '}{t}</div><div className="text-sm opacity-90">{d}</div></Card>
         </button>
       ))}
+    </div>
+  );
+}
+
+function SyncSetup() {
+  const [sp] = useSearchParams(); const st = useSyncStatus(); const toast = useToast();
+  const on = useSetting<boolean>('syncOn', false); const url0 = useSetting<string>('syncUrl', ''); const key0 = useSetting<string>('syncKey', '');
+  const [url, setUrl] = useState<string>(); const [key, setKey] = useState<string>();
+  const u = url ?? sp.get('u') ?? url0; const k = key ?? sp.get('k') ?? key0;
+  const label: Record<string, string> = { off: 'Not connected', idle: 'Waiting…', syncing: 'Syncing…', ok: 'Up to date', offline: 'No internet — will catch up by itself', badkey: 'Wrong sync key', error: st.error ?? 'Problem syncing' };
+  return (
+    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Sync</h1>
+      <p className="text-sm text-zinc-400">Keeps sales, payments and prices the same on every phone and lets Claude add sales for you. It works offline and catches up when you are online. Your data stays on this phone too.</p>
+      <Card tone={on && st.state === 'ok' ? 'sage' : undefined} className="space-y-1">
+        <div className="font-extrabold">{on ? label[st.state] : 'Not connected'}</div>
+        {on && st.lastOk && <div className="text-sm opacity-90">Last synced {formatDateTime(st.lastOk)} · sent {st.pushed ?? 0} · received {st.pulled ?? 0}</div>}
+      </Card>
+      <Field label="Sync link"><input className={inputCls} inputMode="url" autoCapitalize="none" value={u} onChange={(e) => setUrl(e.target.value)} placeholder="https://….supabase.co/functions/v1/sync" /></Field>
+      <Field label="Sync key"><input className={inputCls} type="password" autoCapitalize="none" value={k} onChange={(e) => setKey(e.target.value)} /></Field>
+      <div className="grid grid-cols-2 gap-2">
+        <Btn disabled={!u.trim() || !k.trim()} onClick={async () => { await connectSync(u, k); toast('Connected'); }}>{on ? 'Reconnect' : 'Connect'}</Btn>
+        <Btn kind="ghost" disabled={!on} onClick={() => syncNow()}>Sync now</Btn>
+      </div>
+      {on && <Btn kind="danger" className="w-full" onClick={() => disconnectSync()}>Turn sync off</Btn>}
+      <p className="text-xs text-zinc-500">The key stays on this phone and is never included in backups. Screenshots attached to payments stay on the phone they were taken on.</p>
     </div>
   );
 }
