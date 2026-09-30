@@ -3,7 +3,7 @@ import { db, SYNC_TABLES, type SyncTable } from './schema';
 import { hashText } from '../parser';
 import { setSetting } from './repo';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 interface Row { id: string; updatedAt: number; [k: string]: unknown }
 
 const FileSchema = z.object({

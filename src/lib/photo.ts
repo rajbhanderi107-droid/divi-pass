@@ -48,3 +48,17 @@ export async function testReader(cfg: ReaderConfig): Promise<'ok' | 'wrong-code'
     throw e;
   }
 }
+
+/** Shrink a payment screenshot to ≤ ~200 KB for storing with the payment. */
+export async function compressForStorage(file: File, maxBytes = 200_000): Promise<Blob> {
+  const bmp = await createImageBitmap(file);
+  for (const [side, q] of [[1280, 0.8], [1280, 0.6], [1000, 0.55], [800, 0.5]] as const) {
+    const scale = Math.min(1, side / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+    const ctx = c.getContext('2d'); if (!ctx) break;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    const b = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', q));
+    if (b && b.size <= maxBytes) { bmp.close?.(); return b; }
+  }
+  bmp.close?.(); throw new Error('That photo is too detailed to store. Try a screenshot.');
+}

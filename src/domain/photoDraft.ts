@@ -1,5 +1,6 @@
 import type { Draft } from '../parser';
 import type { EventNight, PassType, Receiver } from './types';
+import { priceFor } from './pricing';
 
 export interface PayPlan { amount: number; utr: string; receiverId: string; method: 'upi' | 'cash'; paidAt?: number }
 export interface DraftPlan {
@@ -21,7 +22,7 @@ export function planFromDraft(d: Draft, c: Ctx): DraftPlan {
     if (pt) qty[pt.id] = (qty[pt.id] ?? 0) + l.qty; else unresolved = true;
   }
   if (unresolved && !warnings.includes('pass-kind-unknown')) warnings.push('pass-kind-unknown');
-  const base = c.passTypes.reduce((s, p) => s + (qty[p.id] ?? 0) * p.price, 0);
+  const base = c.passTypes.reduce((s, p) => s + (qty[p.id] ?? 0) * priceFor(p, ev), 0);
   const passCount = Object.values(qty).reduce((a, b) => a + b, 0);
 
   const rc = (n?: string) => (n ? c.receivers.find((r) => r.nameLower === n.toLowerCase())?.id : undefined) ?? c.lastReceiverId;

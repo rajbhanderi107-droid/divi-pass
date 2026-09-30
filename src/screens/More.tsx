@@ -2,9 +2,13 @@ import { useRef, useState } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addEvent, addReceiver, deleteEvent, restoreSale, savePassType, ValidationError } from '../db/repo';
+import { addEvent, addReceiver, deleteEvent, restoreSale, savePassType, setNightPrices, ValidationError } from '../db/repo';
 import { applyImport, buildBackup, markBackedUp, parseBackup, previewImport, type BackupFile, type ImportPreview } from '../db/backup';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
+import { CustomerDetail, CustomerList } from './Customers';
+import { Reports } from './Reports';
+import { Gate } from './Gate';
+import { Audit } from './Audit';
 import { Btn, Card, Chip, Empty, Field, inputCls, useToast } from '../components/ui';
 import { setSetting } from '../db/repo';
 import { testReader } from '../lib/photo';
@@ -23,6 +27,11 @@ export function More() {
       <Route path="nights" element={<Nights />} />
       <Route path="passes" element={<Passes />} />
       <Route path="receivers" element={<Receivers />} />
+      <Route path="customers" element={<CustomerList />} />
+      <Route path="customers/:id" element={<CustomerDetail />} />
+      <Route path="reports" element={<Reports />} />
+      <Route path="gate" element={<Gate />} />
+      <Route path="audit" element={<Audit />} />
       <Route path="photo" element={<PhotoSetup />} />
       <Route path="health" element={<Health />} />
     </Routes>
@@ -30,7 +39,7 @@ export function More() {
 }
 
 function Menu() {
-  const items = [['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['health', 'Health check']];
+  const items = [['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
@@ -98,13 +107,32 @@ function Trash() {
 }
 
 function Nights() {
-  const events = useEvents(); const [d, setD] = useState(''); const [err, setErr] = useState('');
+  const events = useEvents(); const pts = usePassTypes(); const [d, setD] = useState(''); const [err, setErr] = useState(''); const [open, setOpen] = useState('');
   return (
     <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Nights</h1>
-      {events?.map((e) => <Card key={e.id} className="flex items-center justify-between"><span>{formatDateLabel(e.date)} · {e.date}</span><button className="text-red-400" onClick={() => deleteEvent(e.id).catch((x) => setErr(x.message))}>Delete</button></Card>)}
+      {events?.map((e) => (
+        <Card key={e.id} className="space-y-2">
+          <div className="flex items-center justify-between"><span>{formatDateLabel(e.date)} · {e.date}</span>
+            <span className="flex gap-3"><button className="text-lime" onClick={() => setOpen(open === e.id ? '' : e.id)}>{e.prices && Object.keys(e.prices).length ? 'Prices ●' : 'Prices'}</button><button className="text-red-400" onClick={() => deleteEvent(e.id).catch((x) => setErr(x.message))}>Delete</button></span></div>
+          {open === e.id && pts && <NightPrices ev={e} pts={pts} onErr={setErr} />}
+        </Card>
+      ))}
       <Field label="Add night"><input type="date" className={inputCls} value={d} onChange={(e) => setD(e.target.value)} /></Field>
       {err && <p role="alert" className="text-red-300">{err}</p>}
       <Btn className="w-full" onClick={() => addEvent(d).then(() => { setD(''); setErr(''); }).catch((x) => setErr(x.message))}>Add night</Btn>
+    </div>
+  );
+}
+function NightPrices({ ev, pts, onErr }: { ev: import('../domain/types').EventNight; pts: import('../domain/types').PassType[]; onErr: (s: string) => void }) {
+  const [v, setV] = useState<Record<string, string>>(Object.fromEntries(pts.map((p) => [p.id, ev.prices?.[p.id] !== undefined ? String(ev.prices[p.id]) : ''])));
+  async function save() {
+    const out: Record<string, number> = {};
+    for (const p of pts) { const t = v[p.id]?.trim(); if (!t) continue; const n = parseRupees(t); if (n === null) { onErr('Prices must be whole rupees'); return; } out[p.id] = n; }
+    try { await setNightPrices(ev.id, out); onErr(''); } catch (e) { onErr(e instanceof ValidationError ? e.message : 'Could not save'); }
+  }
+  return (
+    <div className="space-y-2"><p className="text-xs text-zinc-400">Leave blank to use the normal price. Only new sales for this night use it.</p>
+      {pts.map((p) => <Field key={p.id} label={`${p.name} (normal ₹${p.price})`}><input className={inputCls} inputMode="numeric" placeholder={String(p.price)} value={v[p.id] ?? ''} onChange={(e) => setV({ ...v, [p.id]: e.target.value })} onBlur={save} /></Field>)}
     </div>
   );
 }

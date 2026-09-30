@@ -8,6 +8,7 @@ import { planFromDraft, type DraftPlan } from '../domain/photoDraft';
 import { Btn, Card, Chip, Field, inputCls, useToast } from '../components/ui';
 import { formatINR, parseRupees } from '../domain/money';
 import { normalizePhone } from '../domain/phone';
+import { priceFor } from '../domain/pricing';
 import { formatDateLabel, istDate } from '../domain/time';
 
 interface PayRow { key: number; amount: string; utr: string; receiverId: string; method: 'upi' | 'cash'; paidAt?: number }
@@ -51,9 +52,11 @@ export function AddSale() {
     setEventId((events.find((e) => e.date === today) ?? events.find((e) => e.date > today) ?? events[0]!).id);
   }, [events]);
 
+  const curEvent = events?.find((e) => e.id === eventId);
+  const nightPrice = (p: { id: string; price: number }) => priceFor(p, curEvent);
   const unitOf = (p: { id: string; price: number }) => {
-    const v = priceOv[p.id]; if (v === undefined || v.trim() === '') return p.price;
-    const n = parseRupees(v); return n === null ? p.price : n;
+    const v = priceOv[p.id]; if (v === undefined || v.trim() === '') return nightPrice(p);
+    const n = parseRupees(v); return n === null ? nightPrice(p) : n;
   };
   const priceBad = (passTypes ?? []).some((p) => priceOv[p.id]?.trim() && parseRupees(priceOv[p.id]!) === null);
   const base = (passTypes ?? []).reduce((s, p) => s + (qty[p.id] ?? 0) * unitOf(p), 0);
@@ -110,7 +113,7 @@ export function AddSale() {
         if (plan.autoOk) {
           applyPlan(d, plan);
           const ph = normalizePhone(plan.phone);
-          const lines = (passTypes ?? []).filter((x) => (plan.qty[x.id] ?? 0) > 0).map((x) => ({ passTypeId: x.id, qty: plan.qty[x.id]!, unitPrice: x.price }));
+          const lines = (passTypes ?? []).filter((x) => (plan.qty[x.id] ?? 0) > 0).map((x) => ({ passTypeId: x.id, qty: plan.qty[x.id]!, unitPrice: priceFor(x, events?.find((e) => e.id === plan.eventId)) }));
           const sale = ph ? await persist({ ph, lines, discount: 0, payments: plan.pays.map((x) => ({ amount: x.amount, method: x.utr ? ('upi' as const) : x.method, utr: x.utr || undefined, receiverId: x.receiverId || undefined, paidAt: x.paidAt })), eventId: plan.eventId!, name: plan.name, hash: d.sourceHash, srcText: d.sourceText, total: plan.base }) : null;
           if (sale) {
             const night = events?.find((e) => e.id === sale.eventId);
@@ -222,7 +225,7 @@ export function AddSale() {
           {passTypes.filter((p) => p.active).map((p) => (
             <Card key={p.id} className="space-y-2 py-2">
               <div className="flex items-center justify-between">
-                <div><div className="font-semibold">{p.name}</div><div className="text-xs text-zinc-400">{p.seatsPerUnit > 1 ? `${p.seatsPerUnit} seats each · ` : ''}list {formatINR(p.listPrice)}</div></div>
+                <div><div className="font-semibold">{p.name}</div><div className="text-xs text-zinc-400">{nightPrice(p) !== p.price ? 'this night’s price · ' : ''}{p.seatsPerUnit > 1 ? `${p.seatsPerUnit} seats each · ` : ''}list {formatINR(p.listPrice)}</div></div>
                 <div className="flex items-center gap-3">
                   <button aria-label={`Fewer ${p.name}`} className="h-12 w-12 rounded-xl border border-line text-2xl" onClick={() => setStep(p.id, -1)}>−</button>
                   <span className="w-6 text-center text-xl font-bold">{qty[p.id] ?? 0}</span>
@@ -231,9 +234,9 @@ export function AddSale() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-zinc-400">Price each ₹</span>
-                <input aria-label={`${p.name} price each`} className={`${inputCls} !min-h-10 w-28 py-1`} inputMode="numeric" placeholder={String(p.price)} value={priceOv[p.id] ?? ''}
+                <input aria-label={`${p.name} price each`} className={`${inputCls} !min-h-10 w-28 py-1`} inputMode="numeric" placeholder={String(nightPrice(p))} value={priceOv[p.id] ?? ''}
                   onChange={(e) => setPriceOv((o) => ({ ...o, [p.id]: e.target.value }))} />
-                {priceOv[p.id]?.trim() && unitOf(p) !== p.price && (
+                {priceOv[p.id]?.trim() && unitOf(p) !== nightPrice(p) && (
                   <button className="text-sm text-lime underline" onClick={async () => {
                     await savePassType({ id: p.id, name: p.name, kind: p.kind, seatsPerUnit: p.seatsPerUnit, listPrice: p.listPrice, price: unitOf(p), active: p.active });
                     setPriceOv((o) => ({ ...o, [p.id]: '' })); toast(`${p.name} default is now ${formatINR(unitOf(p))}`);

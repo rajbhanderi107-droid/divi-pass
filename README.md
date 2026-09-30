@@ -13,6 +13,12 @@ Works on your phone like an app. Data stays on your phone (no login, no server).
 4. **Add from photo** (optional): tap 📷 on the Add screen and pick a WhatsApp or payment screenshot; if the photo is clear (phone, passes and night all read) the sale is added straight away with an Undo; if anything is unclear the form opens for you to check. Needs the small reader in `server/` (see `server/README.md`), then More → Photo reader.
 5. **More → Backup & restore**: back up often (share to WhatsApp / Drive). Restore merges; the newest edit of each record wins.
 
+## Also included
+- **Merge** two sales of the same buyer and night, **Customers** list with repeat buyers, **Gate list** (mark how many of a group have entered), **Expenses** and net per night.
+- **Reports**: per-night totals, who received how much, a WhatsApp summary to copy, Sales and Payments CSV, Print / Save as PDF.
+- **Prices**: change the price for one sale on the Add screen, save it as the default, or set a different price for a single night (More → Nights → Prices).
+- Attach a payment **screenshot** to a payment (kept on the phone, not in backup files). **Change history** shows every edit.
+
 ## Starting setup (edit in More)
 Nights 11–19 Oct 2026 · Solo ₹650 (list ₹800) · Couple ₹1,300 (list ₹1,600, **assumed**) · Receivers: Bhanderi Raj, Dev Kinner Trivedi.
 

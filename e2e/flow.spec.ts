@@ -126,3 +126,70 @@ test('photo saves directly: the WhatsApp message with a payment thumbnail; uncle
   await page.goto('/#/sales');
   await expect(page.getByText('Ravi')).toHaveCount(0);
 });
+
+test('merge, screenshot, gate, expenses, reports/CSV, night price, customers, audit', async ({ page }) => {
+  const add = async (pass: string, paid: boolean) => {
+    await page.goto('/#/add');
+    await page.getByPlaceholder(/Name :/).fill(`Name : Ravi\nPass : ${pass}\nNo : 9000000002\nDate : 16 oct`);
+    if (paid) await page.getByRole('button', { name: 'Paid full · UPI' }).click();
+    await page.getByRole('button', { name: 'Save sale' }).click();
+    await expect(page.getByText(/Saved DV-/)).toBeVisible();
+  };
+  await add('2 solo', false); await add('1 solo', true);
+
+  // merge DV-0002 (keeper) with DV-0001
+  await page.goto('/#/sales');
+  await page.getByRole('link', { name: /DV-0002/ }).click();
+  await page.getByRole('button', { name: 'Merge with…' }).click();
+  await page.getByRole('button', { name: 'Merge', exact: true }).click();
+  await page.getByRole('button', { name: 'Tap again to merge' }).click();
+  await expect(page.getByText('3 × Solo')).toBeVisible();
+  await expect(page.getByText('₹1,950').first()).toBeVisible();
+
+  // attach a screenshot to the payment
+  await page.locator('input[type=file]').first().setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByAltText('Payment screenshot')).toBeVisible();
+
+  // gate: partial then all in
+  await page.goto('/#/more/gate');
+  await page.getByRole('button', { name: '16 Oct, Fri' }).click();
+  await page.getByRole('button', { name: 'One more' }).click();
+  await expect(page.getByLabel('Entered count')).toContainText('1');
+  await page.getByRole('button', { name: 'All in' }).click();
+  await expect(page.getByLabel('Entered count')).toContainText('3 / 3');
+
+  // expenses
+  await page.goto('/#/money');
+  await page.getByRole('button', { name: '16 Oct, Fri' }).click();
+  await page.getByPlaceholder('Sound, decoration…').fill('Sound');
+  await page.getByLabel('₹', { exact: true }).fill('500');
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await expect(page.getByText('Expenses · ₹500')).toBeVisible();
+
+  // reports + CSV + summary
+  await page.goto('/#/more/reports');
+  await page.getByRole('button', { name: '16 Oct, Fri' }).click();
+  await expect(page.getByText('₹650', { exact: true }).first()).toBeVisible();      // collected
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Sales CSV' }).click()]);
+  const csv = (await (await import('node:fs')).promises.readFile(await dl.path()!, 'utf8'));
+  expect(csv).toContain('Ref,Sold at,Night,Name,Phone,Passes'); expect(csv).toContain('DV-0002'); expect(csv).toContain('Ravi'); expect(csv).toContain('3 Solo @650');
+
+  // per-night price
+  await page.goto('/#/more/nights');
+  await page.getByRole('button', { name: 'Prices' }).nth(5).click();
+  await page.getByLabel(/Solo \(normal/).fill('500');
+  await page.getByLabel(/Solo \(normal/).blur();
+  await page.goto('/#/add');
+  await page.getByRole('button', { name: '16 Oct, Fri' }).click();
+  await page.getByLabel('More Solo').click();
+  await expect(page.getByText('₹500').first()).toBeVisible();
+  await expect(page.getByText('this night’s price')).toBeVisible();
+
+  // customers + audit
+  await page.goto('/#/more/customers');
+  await expect(page.getByText('Ravi')).toBeVisible();
+  await page.goto('/#/more/audit');
+  await expect(page.getByText('sale · merge')).toBeVisible();
+  await page.goto('/#/more/health');
+  await expect(page.getByText('All records consistent ✓')).toBeVisible();
+});

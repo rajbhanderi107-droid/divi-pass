@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { AuditRow, Customer, EventNight, PassType, Payment, Receiver, Sale, Setting } from '../domain/types';
+import type { Attachment, AuditRow, Customer, Expense, EventNight, PassType, Payment, Receiver, Sale, Setting } from '../domain/types';
 
 export class DiviDB extends Dexie {
   events!: Table<EventNight, string>;
@@ -9,6 +9,8 @@ export class DiviDB extends Dexie {
   payments!: Table<Payment, string>;
   receivers!: Table<Receiver, string>;
   auditLog!: Table<AuditRow, number>;
+  expenses!: Table<Expense, string>;
+  attachments!: Table<Attachment, string>;
   settings!: Table<Setting, string>;
 
   constructor(name = 'divi-pass') {
@@ -23,10 +25,14 @@ export class DiviDB extends Dexie {
       auditLog: '++seq, at, entity, entityId',
       settings: 'key',
     });
+    this.version(2).stores({
+      expenses: 'id, eventId, paidAt, updatedAt, deletedAt',
+      attachments: 'id, paymentId, saleId, createdAt, deletedAt',
+    });
   }
 }
 
-export const SYNC_TABLES = ['events', 'passTypes', 'customers', 'sales', 'payments', 'receivers'] as const;
+export const SYNC_TABLES = ['events', 'passTypes', 'customers', 'sales', 'payments', 'receivers', 'expenses'] as const;
 export type SyncTable = (typeof SYNC_TABLES)[number];
 
 export let db = new DiviDB();

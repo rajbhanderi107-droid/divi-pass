@@ -2,7 +2,8 @@ import { ulid } from 'ulid';
 import { db } from './schema';
 import { computePunchState, computeSeats, computeTotal, netPaid } from '../domain/status';
 import { normalizePhone } from '../domain/phone';
-import type { Channel, Customer, Payment, Sale, SaleLine } from '../domain/types';
+import { priceFor } from '../domain/pricing';
+import type { Channel, Customer, Expense, Payment, Sale, SaleLine } from '../domain/types';
 
 export class DuplicateUtrError extends Error {
   constructor(public utr: string, public saleId: string) { super(`UTR ${utr} already recorded`); }
@@ -78,12 +79,13 @@ export async function createSale(input: NewSale): Promise<Sale> {
   if (!Number.isSafeInteger(discount) || discount < 0) throw new ValidationError('Discount must be 0 or more');
 
   return db.transaction('rw', [db.events, db.passTypes, db.customers, db.sales, db.payments, db.settings, db.auditLog], async () => {
-    if (!(await db.events.get(input.eventId))) throw new ValidationError('Pick a night');
+    const evRow = await db.events.get(input.eventId);
+    if (!evRow) throw new ValidationError('Pick a night');
     const lines: SaleLine[] = [];
     for (const l of input.lines) {
       const pt = await db.passTypes.get(l.passTypeId);
       if (!pt) throw new ValidationError('Unknown pass type');
-      const price = l.unitPrice ?? pt.price;
+      const price = l.unitPrice ?? priceFor(pt, evRow);
       if (!Number.isSafeInteger(price) || price < 0) throw new ValidationError('Price must be a whole number');
       lines.push({ passTypeId: pt.id, nameSnap: pt.name, seatsPerUnitSnap: pt.seatsPerUnit, listPriceSnap: pt.listPrice, unitPriceSnap: price, qty: l.qty });
     }
@@ -233,9 +235,10 @@ export function restorePayment(id: string) {
 /** Permanently remove trash older than 30 days. */
 export function purgeTrash(olderThanMs = 30 * 86_400_000) {
   const cutoff = now() - olderThanMs;
-  return db.transaction('rw', [db.sales, db.payments, db.auditLog], async () => {
+  return db.transaction('rw', [db.sales, db.payments, db.attachments, db.auditLog], async () => {
     const old = await db.sales.filter((s) => !!s.deletedAt && s.deletedAt < cutoff).primaryKeys();
     await db.payments.where('saleId').anyOf(old).delete();
+    await db.attachments.where('saleId').anyOf(old).delete();
     await db.sales.bulkDelete(old);
     for (const id of old) await audit('sale', id, 'purge');
     return old.length;
@@ -273,4 +276,82 @@ export async function savePassType(p: { id?: string; name: string; kind: 'solo' 
   if (p.id) { await db.passTypes.update(p.id, { ...p, name: p.name.trim(), updatedAt: t }); return; }
   const order = (await db.passTypes.count()) + 1;
   await db.passTypes.add({ ...p, id: ulid(), name: p.name.trim(), aliases: [p.name.trim().toLowerCase()], sortOrder: order, createdAt: t, updatedAt: t });
+}
+
+export async function setNightPrices(eventId: string, prices: Record<string, number>) {
+  for (const v of Object.values(prices)) if (!Number.isSafeInteger(v) || v < 0) throw new ValidationError('Prices must be whole rupees');
+  await db.events.update(eventId, { prices: Object.keys(prices).length ? prices : undefined, updatedAt: now() });
+}
+
+export async function addExpense(e: { eventId: string; label: string; amount: number; receiverId?: string; paidAt?: number }): Promise<Expense> {
+  if (!e.label.trim()) throw new ValidationError('Enter what it was for');
+  if (!Number.isSafeInteger(e.amount) || e.amount <= 0) throw new ValidationError('Amount must be a whole number above 0');
+  return db.transaction('rw', [db.events, db.expenses, db.auditLog], async () => {
+    if (!(await db.events.get(e.eventId))) throw new ValidationError('Pick a night');
+    const t = now();
+    const row: Expense = { id: ulid(), eventId: e.eventId, label: e.label.trim(), amount: e.amount, receiverId: e.receiverId, paidAt: e.paidAt ?? t, createdAt: t, updatedAt: t };
+    await db.expenses.add(row); await audit('expense', row.id, 'create', undefined, row);
+    return row;
+  });
+}
+export const deleteExpense = (id: string) => db.transaction('rw', [db.expenses, db.auditLog], async () => {
+  await db.expenses.update(id, { deletedAt: now(), updatedAt: now() }); await audit('expense', id, 'delete');
+});
+export const restoreExpense = (id: string) => db.transaction('rw', [db.expenses, db.auditLog], async () => {
+  await db.expenses.update(id, { deletedAt: undefined, updatedAt: now() }); await audit('expense', id, 'restore');
+});
+
+/** Gate check-in: how many of the sale's seats have entered. */
+export function setEntered(saleId: string, entered: number) {
+  return db.transaction('rw', [db.sales, db.auditLog], async () => {
+    const s = await db.sales.get(saleId);
+    if (!s || s.deletedAt) throw new ValidationError('Sale not found');
+    if (s.cancelledAt) throw new ValidationError('This sale is cancelled');
+    if (!Number.isInteger(entered) || entered < 0 || entered > s.seats) throw new ValidationError(`Entered must be between 0 and ${s.seats}`);
+    await db.sales.update(saleId, { entered, updatedAt: now() });
+    await audit('sale', saleId, 'checkin', { entered: s.entered ?? 0 }, { entered });
+  });
+}
+
+/** Merge `otherId` into `keepId` (same night, same buyer): lines combine, payments move, the other sale goes to trash. */
+export function mergeSales(keepId: string, otherId: string) {
+  return db.transaction('rw', [db.sales, db.payments, db.attachments, db.settings, db.auditLog], async () => {
+    if (keepId === otherId) throw new ValidationError('Pick two different sales');
+    const [a, b] = await Promise.all([db.sales.get(keepId), db.sales.get(otherId)]);
+    if (!a || !b || a.deletedAt || b.deletedAt) throw new ValidationError('Sale not found');
+    if (a.eventId !== b.eventId) throw new ValidationError('Both sales must be for the same night');
+    if (a.customerId !== b.customerId) throw new ValidationError('Both sales must be for the same buyer');
+    if (a.cancelledAt || b.cancelledAt) throw new ValidationError('Cancelled sales cannot be merged');
+    const lines: SaleLine[] = a.lines.map((l) => ({ ...l }));
+    for (const l of b.lines) {
+      const m = lines.find((x) => x.passTypeId === l.passTypeId && x.unitPriceSnap === l.unitPriceSnap);
+      if (m) { m.qty += l.qty; m.punchedAt = m.punchedAt && l.punchedAt ? Math.max(m.punchedAt, l.punchedAt) : undefined; }
+      else lines.push({ ...l });
+    }
+    const discount = a.discount + b.discount;
+    const merged: Sale = {
+      ...a, lines, discount, total: computeTotal(lines, discount), seats: computeSeats(lines), punchState: computePunchState(lines),
+      entered: (a.entered ?? 0) + (b.entered ?? 0) || undefined, notes: [a.notes, b.notes].filter(Boolean).join(' · ') || undefined, updatedAt: now(),
+    };
+    await db.payments.where('saleId').equals(otherId).modify({ saleId: keepId, updatedAt: now() });
+    await db.attachments.where('saleId').equals(otherId).modify({ saleId: keepId });
+    await db.sales.put(merged);
+    await db.sales.update(otherId, { deletedAt: now(), updatedAt: now(), notes: `Merged into ${a.refNo}` });
+    await audit('sale', keepId, 'merge', { a, b }, merged);
+    return merged;
+  });
+}
+
+export async function attachToPayment(paymentId: string, blob: Blob) {
+  return db.transaction('rw', [db.payments, db.attachments, db.auditLog], async () => {
+    const p = await db.payments.get(paymentId);
+    if (!p || p.deletedAt) throw new ValidationError('Payment not found');
+    if (blob.size > 400_000) throw new ValidationError('Photo is too large');
+    const id = ulid();
+    await db.attachments.add({ id, paymentId, saleId: p.saleId, mime: blob.type || 'image/jpeg', bytes: blob.size, blob, createdAt: now() });
+    if (p.attachmentId) await db.attachments.update(p.attachmentId, { deletedAt: now() });
+    await db.payments.update(paymentId, { attachmentId: id, updatedAt: now() });
+    await audit('payment', paymentId, 'attach');
+    return id;
+  });
 }

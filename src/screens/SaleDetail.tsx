@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addPayment, cancelSale, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, restorePayment, restoreSale, setLinePunched, updateSale, ValidationError } from '../db/repo';
-import { useEvents, useReceivers } from '../db/queries';
+import { addPayment, attachToPayment, cancelSale, deletePayment, deleteSale, DuplicateUtrError, markAllPunched, mergeSales, restorePayment, restoreSale, setLinePunched, updateSale, ValidationError } from '../db/repo';
+import { useEvents, useReceivers, useSalesView } from '../db/queries';
+import { compressForStorage } from '../lib/photo';
 import { Btn, Card, Chip, Empty, Field, Pill, Sheet, copyText, inputCls, useToast } from '../components/ui';
 import { formatINR, parseRupees } from '../domain/money';
 import { formatDateLabel, formatDateTime } from '../domain/time';
@@ -20,7 +21,7 @@ export function SaleDetail() {
     const [customer, payments] = await Promise.all([db.customers.get(sale.customerId), db.payments.where('saleId').equals(id).toArray()]);
     return { sale, customer, payments };
   }, [id]);
-  const [paySheet, setPaySheet] = useState<null | 'receipt' | 'refund'>(null); const [editOpen, setEditOpen] = useState(false);
+  const [paySheet, setPaySheet] = useState<null | 'receipt' | 'refund'>(null); const [editOpen, setEditOpen] = useState(false); const [mergeOpen, setMergeOpen] = useState(false);
 
   if (data === undefined || !events || !receivers) return null;
   if (data === null) return <Empty text="Sale not found."><Link to="/sales" className="text-lime">Back to sales</Link></Empty>;
@@ -83,6 +84,7 @@ export function SaleDetail() {
             <div className="font-semibold">{p.kind === 'refund' ? '−' : ''}{formatINR(p.amount)} <span className="text-xs font-normal text-zinc-400">{p.kind === 'refund' ? 'refund' : p.method.toUpperCase()}</span></div>
             <div className="text-xs text-zinc-400">{formatDateTime(p.paidAt)}{rname(p.receiverId) ? ` · to ${rname(p.receiverId)}` : ''}</div>
             {p.utr && <button className="text-xs text-lime" onClick={() => copyText(p.utr!).then(() => toast('UTR copied'))}>UTR {p.utr}</button>}
+            <PaymentShot payment={p} />
           </div>
           <button className="px-2 text-red-400" onClick={() => { deletePayment(p.id); toast('Payment removed', { label: 'Undo', run: () => { restorePayment(p.id); } }); }}>Remove</button>
         </Card>
@@ -92,6 +94,7 @@ export function SaleDetail() {
           <Btn onClick={() => setPaySheet('receipt')}>Add payment</Btn>
           <Btn kind="ghost" disabled={paid <= 0} onClick={() => setPaySheet('refund')}>Refund</Btn>
           <Btn kind="ghost" onClick={() => setEditOpen(true)}>Edit</Btn>
+          <Btn kind="ghost" disabled={!!sale.cancelledAt} onClick={() => setMergeOpen(true)}>Merge with…</Btn>
           <Btn kind="ghost" onClick={() => cancelSale(sale.id, !sale.cancelledAt)}>{sale.cancelledAt ? 'Un-cancel' : 'Cancel sale'}</Btn>
           <Btn kind="danger" className="col-span-2" onClick={async () => { await deleteSale(sale.id); nav('/sales'); toast('Moved to trash', { label: 'Undo', run: () => { restoreSale(sale.id); } }); }}>Delete</Btn>
         </div>
@@ -99,6 +102,7 @@ export function SaleDetail() {
       {sale.sourceText && <details className="text-sm text-zinc-400"><summary>Original message</summary><pre className="mt-2 whitespace-pre-wrap">{sale.sourceText}</pre></details>}
 
       <PaySheet kind={paySheet} onClose={() => setPaySheet(null)} saleId={sale.id} suggested={paySheet === 'refund' ? paid : due} />
+      <MergeSheet open={mergeOpen} onClose={() => setMergeOpen(false)} sale={sale} />
       <EditSheet open={editOpen} onClose={() => setEditOpen(false)} sale={sale} />
     </div>
   );
@@ -170,6 +174,52 @@ function EditSheet({ open, onClose, sale }: { open: boolean; onClose: () => void
         <Field label="Discount"><input className={inputCls} inputMode="numeric" value={discount} onChange={(e) => setDiscount(e.target.value)} /></Field>
         {err && <p role="alert" className="text-red-300">{err}</p>}
         <Btn className="w-full" onClick={submit}>Save changes</Btn>
+      </div>
+    </Sheet>
+  );
+}
+
+function PaymentShot({ payment }: { payment: import('../domain/types').Payment }) {
+  const toast = useToast(); const input = useRef<HTMLInputElement>(null); const [busy, setBusy] = useState(false); const [url, setUrl] = useState('');
+  const att = useLiveQuery(async () => (payment.attachmentId ? db.attachments.get(payment.attachmentId) : undefined), [payment.attachmentId]);
+  useEffect(() => {
+    if (!att?.blob || att.deletedAt) { setUrl(''); return; }
+    const u = URL.createObjectURL(att.blob); setUrl(u); return () => URL.revokeObjectURL(u);
+  }, [att]);
+  async function pick(f?: File) {
+    if (!f) return; setBusy(true);
+    try { await attachToPayment(payment.id, await compressForStorage(f)); toast('Screenshot saved'); }
+    catch (e) { toast((e as Error).message || 'Could not save the screenshot'); }
+    finally { setBusy(false); if (input.current) input.current.value = ''; }
+  }
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      {url && <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Payment screenshot" className="h-12 rounded border border-line" /></a>}
+      <button className="text-xs text-zinc-300 underline" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Saving…' : url ? 'Replace screenshot' : '📎 Attach screenshot'}</button>
+    </div>
+  );
+}
+
+function MergeSheet({ open, onClose, sale }: { open: boolean; onClose: () => void; sale: import('../domain/types').Sale }) {
+  const views = useSalesView(); const nav = useNavigate(); const toast = useToast(); const [err, setErr] = useState(''); const [sure, setSure] = useState('');
+  if (!open || !views) return null;
+  const others = views.filter((v) => v.sale.id !== sale.id && v.sale.customerId === sale.customerId && v.sale.eventId === sale.eventId && !v.sale.cancelledAt);
+  return (
+    <Sheet open onClose={onClose} title="Merge with…">
+      <div className="space-y-2">
+        <p className="text-sm text-zinc-400">Combines another sale by the same buyer on the same night into this one. Its passes and payments move here; the other sale goes to Trash. This cannot be undone with one tap.</p>
+        {others.length === 0 && <p className="text-zinc-500">No other sale by this buyer on this night.</p>}
+        {others.map((v) => (
+          <Card key={v.sale.id} className="flex items-center justify-between">
+            <div><b>{v.sale.refNo}</b><div className="text-sm text-zinc-400">{v.sale.lines.map((l) => `${l.qty} ${l.nameSnap}`).join(' + ')} · {formatINR(v.sale.total)}</div></div>
+            <Btn kind={sure === v.sale.id ? 'danger' : 'primary'} onClick={async () => {
+              if (sure !== v.sale.id) { setSure(v.sale.id); return; }
+              try { await mergeSales(sale.id, v.sale.id); toast(`Merged ${v.sale.refNo} into ${sale.refNo}`); onClose(); nav(`/sale/${sale.id}`); } catch (e) { setErr(e instanceof ValidationError ? e.message : 'Could not merge'); }
+            }}>{sure === v.sale.id ? 'Tap again to merge' : 'Merge'}</Btn>
+          </Card>
+        ))}
+        {err && <p role="alert" className="text-red-300">{err}</p>}
       </div>
     </Sheet>
   );
