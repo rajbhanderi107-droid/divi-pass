@@ -379,7 +379,7 @@ test('login: wrong password is refused, Google button goes to Google, sign out r
   await expect.poll(() => googleUrl).toContain('provider=google');
 });
 
-test('roles: only super admins create logins; sellers see only their own book and no admin screens', async ({ page }) => {
+test('roles: only super admins see everything and create logins; admins and sellers see only their own book', async ({ page }) => {
   // Raj (super) sells one for Divya and one for Dev, then creates a login
   for (const [n, ph, who] of [['Divyabuyer One', '9000000071', 'Divya Achariya'], ['Devbuyer Two', '9000000072', 'Dev Kinner Trivedi']] as const) {
     await page.goto('/#/add');
@@ -418,6 +418,22 @@ test('roles: only super admins create logins; sellers see only their own book an
   await page.getByRole('button', { name: 'Save sale' }).click();
   await expect(page.getByText(/Saved DV-/)).toBeVisible();
   await expect.poll(() => [...cloud.rows.values()].some((x) => x.row.t === 'sales' && x.row.data.customerId && x.row.data.sellerId === 'rc-divya-achariya' && x.row.data.sourceText?.includes('Divya Own')), { timeout: 15000 }).toBe(true);
+
+  // An admin gets admin screens (nights, prices) but still only their own book — only super admins see everything
+  await page.goto('/#/more/account');
+  await page.getByRole('button', { name: 'Sign out' }).click(); await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await signInAs(page, 'helper', 'helper-password');
+  await expect(page.getByRole('heading', { name: 'Divi Pass' })).toBeVisible();
+  await page.goto('/#/sales');
+  await expect(page.getByText('Devbuyer Two')).toBeVisible();
+  await expect(page.getByText('Divyabuyer One')).toHaveCount(0);
+  await expect(page.getByText('Divya Own')).toHaveCount(0);
+  await page.goto('/#/more');
+  await expect(page.getByText('Nights', { exact: true })).toBeVisible();
+  await expect(page.getByText('Team & logins')).toHaveCount(0);
+  await page.goto('/#/money');
+  await expect(page.getByText(/Expenses/)).toHaveCount(0);
 });
 
 test("sellers: Divya sells for Raj — Raj's book shows her sale, Dev's does not; money can go to Raj or Divya", async ({ page }) => {

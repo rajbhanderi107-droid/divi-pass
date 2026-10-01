@@ -13,7 +13,7 @@ export async function mockCloud(page: Page): Promise<Cloud> {
       raj: { password: 'raj-password', name: 'Raj Bhanderi', role: 'super', personId: 'rc-bhanderi-raj' },
       dev: { password: 'dev-password', name: 'Dev Trivedi', role: 'super', personId: 'rc-dev-kinner-trivedi' },
       divya: { password: 'divya-password', name: 'Divya Achariya', role: 'seller', personId: 'rc-divya-achariya' },
-      helper: { password: 'helper-password', name: 'Helper', role: 'admin' },
+      helper: { password: 'helper-password', name: 'Helper', role: 'admin', personId: 'rc-dev-kinner-trivedi' },
     },
     rows: new Map(), seq: 0, calls: [],
   };
@@ -47,13 +47,13 @@ export async function mockCloud(page: Page): Promise<Cloud> {
       return route.fulfill({ status: 200, headers: H, json: { users: Object.entries(cloud.users).map(([l, u]) => pub(l, u)), user: {} } });
     }
     // sync
-    const seller = me.role === 'seller'; const mine = seller ? ids(me.personId!) : [];
+    const seller = me.role !== 'super'; const mine = seller ? ids(me.personId!) : [];
     const saleOwner = (id: string) => cloud.rows.get('sales|' + id)?.row.data.sellerId;
     for (const r of b.push as any[]) {
       if (seller) {
         const okSale = r.t === 'sales' && mine.includes(r.data.sellerId) && (!cloud.rows.has('sales|' + r.id) || mine.includes(saleOwner(r.id)));
         const okPay = r.t === 'payments' && (mine.includes(saleOwner(r.data.saleId)) || (b.push as any[]).some((x) => x.t === 'sales' && x.id === r.data.saleId && mine.includes(x.data.sellerId)));
-        if (!(r.t === 'customers' || okSale || okPay)) continue;
+        if (!(r.t === 'customers' || okSale || okPay || (me.role === 'admin' && ['events', 'passTypes', 'receivers'].includes(r.t)))) continue;
       }
       const k = r.t + '|' + r.id; const c = cloud.rows.get(k);
       if (!c || c.row.updatedAt < r.updatedAt) cloud.rows.set(k, { row: r, seq: ++cloud.seq });

@@ -91,7 +91,7 @@ async function adopt(session: Session): Promise<void> {
   const owner = await getSet<string>('dataOwner');
   const hasData = (await db.sales.count()) > 0;
   // Data from another person, or unowned data on a seller's phone, must not stay here.
-  if ((owner && owner !== p.login) || (!owner && hasData && p.role === 'seller')) { await wipeLocal(); await seedIfEmpty(); await putSet('session', session); }
+  if ((owner && owner !== p.login) || (!owner && hasData && p.role !== 'super')) { await wipeLocal(); await seedIfEmpty(); await putSet('session', session); }
   await seedIfEmpty();
   await putSet('dataOwner', p.login); await putSet('profile', p);
   set({ status: 'in', profile: p });

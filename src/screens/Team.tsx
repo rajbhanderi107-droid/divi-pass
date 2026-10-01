@@ -9,9 +9,9 @@ import { formatDateTime } from '../domain/time';
 interface TeamUser { login: string; name: string; role: Role; personId: string | null; googleEmail: string | null; disabled: boolean; passwordLogin: boolean }
 export const ROLE_LABEL: Record<Role, string> = { super: 'Super admin', admin: 'Admin', seller: 'Seller' };
 const ROLE_HELP: Record<Role, string> = {
-  super: 'Everything, plus creating logins and passwords.',
-  admin: 'Everything about sales and money for all sellers — nights, prices, reports, backups. Cannot create logins.',
-  seller: 'Only their own book: adds sales and payments and sees them. Nothing of other sellers, and cannot change prices or nights.',
+  super: 'Sees all data of every seller, plus creating logins and passwords. Only super admins see everything.',
+  admin: 'Sees only their own book, but can also set up nights, prices and people, and use reports and backups. Cannot create logins.',
+  seller: 'Only their own book: adds sales and payments and sees them. Cannot change prices or nights.',
 };
 const back = <Link to="/more" className="text-zinc-400">← More</Link>;
 const msg = (e: unknown) => (e instanceof AuthError && e.kind === 'offline' ? 'No internet.' : e instanceof Error ? e.message : 'Something went wrong');
@@ -99,12 +99,12 @@ export function Team() {
           <div className="flex flex-wrap gap-2">{(['super', 'admin', 'seller'] as Role[]).map((r) => <Chip key={r} active={f.role === r} onClick={() => setF({ ...f, role: r })}>{ROLE_LABEL[r]}</Chip>)}</div>
           <p className="mt-1 text-xs text-zinc-500">{ROLE_HELP[f.role]}</p>
         </Field>
-        {f.role === 'seller' && (
+        {f.role !== 'super' && (
           <Field group label="Sells as">
             <div className="flex flex-wrap gap-2">{people?.map((x) => <Chip key={x.id} active={f.personId === x.id} onClick={() => setF({ ...f, personId: x.id })}>{x.name}</Chip>)}</div>
           </Field>
         )}
-        <Btn className="w-full" disabled={!f.login || !f.name || (!f.password && !f.googleEmail)} onClick={create}>Create login</Btn>
+        <Btn className="w-full" disabled={!f.login || !f.name || (!f.password && !f.googleEmail) || (f.role !== 'super' && !f.personId)} onClick={create}>Create login</Btn>
       </Card>
     </div>
   );

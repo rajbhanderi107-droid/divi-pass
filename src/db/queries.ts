@@ -9,10 +9,10 @@ export interface SaleView { sale: Sale; customer?: Customer; event?: EventNight;
 
 const live = <T extends { deletedAt?: number }>(r: T[]) => r.filter((x) => !x.deletedAt);
 
-/** Whose sales are shown: a seller only ever sees their own; everyone else uses the switcher. */
+/** Whose sales are shown: only super admins can see everyone; admins and sellers always see just their own book. */
 export async function readBook(): Promise<string> {
   const p = (await db.settings.get('profile'))?.value as Profile | undefined;
-  if (p?.role === 'seller') return p.personId ?? '';
+  if (p && p.role !== 'super') return p.personId ?? '-';
   return ((await db.settings.get('book'))?.value as string | undefined) ?? '';
 }
 

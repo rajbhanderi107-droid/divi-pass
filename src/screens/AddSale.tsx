@@ -35,7 +35,7 @@ export function AddSale() {
   const season = useSetting<{ from: string; to: string } | undefined>('season', undefined);
   const lastReceiver = useSetting<string>('lastReceiver', '');
   const book = useBook(); const lastSeller = useSetting<string>('lastSeller', ''); const [pickedSeller, setPickedSeller] = useState('');
-  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role === 'seller';
+  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role !== 'super';
   const sellerId = isSeller ? book : pickedSeller || book || lastSeller;
   const toast = useToast();
 
@@ -108,7 +108,7 @@ export function AddSale() {
     setDrafts(ds); setIdx(0);
     if (ds[0]) applyDraft(ds[0]); else { setWarns(['Nothing recognised — fill the form below.']); }
   }
-  const isSellerNow = async () => ((await db.settings.get('profile'))?.value as { role?: string } | undefined)?.role === 'seller';
+  const isSellerNow = async () => ((await db.settings.get('profile'))?.value as { role?: string } | undefined)?.role !== 'super';
   /** Adds records straight from text. Returns true when it handled the text (nothing more for the user to do here). */
   async function runIngest(all: string, fromPhoto: boolean): Promise<boolean> {
     // read everything fresh from the database so an early paste/photo never races the screen's own loading

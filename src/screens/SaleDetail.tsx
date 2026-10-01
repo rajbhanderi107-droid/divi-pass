@@ -49,7 +49,7 @@ export function SaleDetail() {
         <Pill tone={statusTone(status)}>{statusLabel[status]}</Pill>
       </div>
 
-      {receivers.length > 1 && role !== 'seller' && (
+      {receivers.length > 1 && role === 'super' && (
         <Field group label="Sold by">
           <div className="flex gap-2 overflow-x-auto pb-1">{receivers.map((r) => <Chip key={r.id} active={sale.sellerId === r.id} onClick={() => setSeller(sale.id, sale.sellerId === r.id ? '' : r.id)}>{r.name}</Chip>)}</div>
         </Field>

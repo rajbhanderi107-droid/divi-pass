@@ -14,7 +14,7 @@ import { formatPhone } from '../domain/phone';
 import { linesText } from './Sales';
 
 export function Money() {
-  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role === 'seller';
+  const auth = useAuth(); const isSeller = auth.status === 'in' && auth.profile.role !== 'super';
   const rows = useSalesView(); const receivers = useReceivers(); const events = useEvents(); const toast = useToast();
   const expenses = useLiveQuery(async () => (await db.expenses.orderBy('paidAt').reverse().toArray()).filter((e) => !e.deletedAt), []);
   const [ev, setEv] = useState(''); const [label, setLabel] = useState(''); const [amt, setAmt] = useState(''); const [err, setErr] = useState('');

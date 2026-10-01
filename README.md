@@ -53,9 +53,11 @@ Stack: Vite, React, TypeScript, Tailwind, Dexie (IndexedDB), PWA. See `PLAN.md` 
 
 Everyone signs in (login id + password, or Google). Roles:
 
-- **Super admin** (Raj, Dev): everything, and the only ones who can create logins and passwords (More → Team & logins).
-- **Admin**: everything about sales and money for all sellers, nights, prices, reports, backups — but cannot create logins.
-- **Seller**: only their own book. The server sends a seller nothing else, and refuses writes outside their book.
+- **Super admin** (Raj, Dev): the only ones who see all data, and the only ones who can create logins and passwords (More → Team & logins).
+- **Admin**: sees only their own book, but can also set up nights, prices and people, and use reports and backups. Cannot create logins.
+- **Seller**: sees and adds only their own book.
+
+Admins and sellers get only their own book from the server (and the server refuses writes outside it); they never receive expenses or other sellers' sales, payments or buyers.
 
 Sales sync through the cloud (Supabase edge function `sync`, which checks the sign-in and role on every call). The app works offline and catches up. Signing out clears that phone's copy. Synced: nights, pass types, buyers, sales, payments, receivers, expenses (expenses are never sent to sellers). Not synced: payment screenshots, Inbox, settings.
 
