@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -24,9 +25,9 @@ export function Reports() {
   const rname = (id: string) => (id ? receivers.find((r) => r.id === id)?.name ?? 'Unknown' : 'No receiver set');
 
   function salesCsv() {
-    const rows: (string | number | undefined)[][] = [['Ref', 'Sold at', 'Night', 'Name', 'Phone', 'Passes', 'Seats', 'Discount', 'Total', 'Paid', 'Due', 'Status', 'Punched', 'Channel', 'Notes']];
+    const rows: (string | number | undefined)[][] = [['Ref', 'Sold at', 'Night', 'Name', 'Phone', 'Passes', 'Seats', 'Discount', 'Total', 'Paid', 'Due', 'Status', 'Punched', 'Channel', 'Sold by', 'Notes']];
     for (const v of [...vs].sort((a, b) => a.sale.createdAt - b.sale.createdAt)) {
-      rows.push([v.sale.refNo, formatDateTime(v.sale.createdAt), v.event?.date, v.customer?.name, v.customer?.phone, v.sale.lines.map((l) => `${l.qty} ${l.nameSnap} @${l.unitPriceSnap}`).join(' + '), v.sale.seats, v.sale.discount, v.sale.total, netPaid(v.payments), v.due, v.status, v.sale.punchState, v.sale.channel, v.sale.notes]);
+      rows.push([v.sale.refNo, formatDateTime(v.sale.createdAt), v.event?.date, v.customer?.name, v.customer?.phone, v.sale.lines.map((l) => `${l.qty} ${l.nameSnap} @${l.unitPriceSnap}`).join(' + '), v.sale.seats, v.sale.discount, v.sale.total, netPaid(v.payments), v.due, v.status, v.sale.punchState, v.sale.channel, rcv.find((r) => r.id === v.sale.sellerId)?.name, v.sale.notes]);
     }
     downloadText(`divi-pass-sales-${istDate()}.csv`, toCsv(rows));
   }
@@ -40,6 +41,7 @@ export function Reports() {
     <div className="space-y-4 print-area">
       <Link to="/more" className="no-print text-zinc-400">← More</Link>
       <h1 className="text-2xl font-bold">Reports</h1>
+      <BookBar />
       <div className="no-print flex gap-2 overflow-x-auto">{events.map((e) => <Chip key={e.id} active={e.id === cur?.id} onClick={() => setSel(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
       {cur && st && (
         <>

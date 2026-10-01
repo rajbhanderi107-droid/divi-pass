@@ -11,7 +11,7 @@ import { formatINR } from '../domain/money';
 export const SHOWMATES_URL = 'https://seller.showmates.in/punch';
 
 export function Punch() {
-  const views = useSalesView(); const events = useEvents(); const passTypes = usePassTypes(); const toast = useToast();
+  const views = useSalesView(true); const events = useEvents(); const passTypes = usePassTypes(); const toast = useToast();
   const url = useSetting<string>('showmatesUrl', SHOWMATES_URL);
   const [night, setNight] = useState<string>('today'); const [skipped, setSkipped] = useState<string[]>([]); const [last, setLast] = useState<QueueItem | null>(null);
   const today = istDate();

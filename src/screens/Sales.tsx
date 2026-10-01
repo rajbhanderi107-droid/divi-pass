@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { memo, useDeferredValue, useMemo, useState } from 'react';
 import { useWindow } from '../components/Windowed';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -40,6 +41,7 @@ export function Sales() {
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">Sales</h1>
+      <BookBar />
       <input className={inputCls} type="search" placeholder="Search name, phone, DV-0001 or UTR" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex gap-2 overflow-x-auto">
         {FILTERS.map(([k, l]) => <Chip key={k} active={f === k} onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.set('f', k); return n; })}>{l}</Chip>)}

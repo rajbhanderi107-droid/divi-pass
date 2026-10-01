@@ -45,7 +45,7 @@ export function CustomerList() {
 }
 
 export function CustomerDetail() {
-  const { id = '' } = useParams(); const rows = useSalesView();
+  const { id = '' } = useParams(); const rows = useSalesView(true);
   if (!rows) return null;
   const mine = rows.filter((r) => r.customer?.id === id); const c = mine[0]?.customer;
   if (!c) return <div className="space-y-3"><Back to="/more/customers" /><Empty text="Customer not found." /></div>;

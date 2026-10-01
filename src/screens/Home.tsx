@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useEvents, useInbox, usePassTypes, useSalesView, useSetting } from '../db/queries';
@@ -47,11 +48,12 @@ export function Home() {
         <div className="relative max-w-[62%] space-y-1">
           <div className="text-xs font-bold uppercase tracking-[.14em] text-sand/80">Divya Achariya Divi</div>
           <h1 className="text-3xl font-extrabold leading-tight text-cream">Divi Pass</h1>
-          <Link to="/more/sync" className="block text-xs text-cream/80">{syncSt.state === 'off' ? '☁ Not synced — tap to connect' : syncSt.state === 'ok' ? '☁ Synced' : syncSt.state === 'syncing' ? '☁ Syncing…' : syncSt.state === 'offline' ? '☁ Offline — will catch up' : '☁ Sync problem — tap'}</Link>
+          <Link to="/more/account" className="block text-xs text-cream/80">{syncSt.state === 'off' ? '☁ Waiting to sync' : syncSt.state === 'ok' ? '☁ Synced' : syncSt.state === 'syncing' ? '☁ Syncing…' : syncSt.state === 'offline' ? '☁ Offline — will catch up' : syncSt.state === 'auth' ? '☁ Sign in again' : '☁ Sync problem — tap'}</Link>
           <p className="text-sm text-cream/85">{tonight ? `${formatDateLabel(tonight.date)} · ${tonightSeats} seat${tonightSeats === 1 ? '' : 's'} sold` : 'Your pass register'}</p>
         </div>
         <Link to="/add" className="btn-sand relative mt-4 inline-block rounded-full px-6 py-3 font-extrabold">＋ Add a sale</Link>
       </div>
+      <BookBar />
       {(inbox.length > 0 || toCheck > 0) && (
         <Card tone="bark" className="space-y-2">
           <div className="font-extrabold">Needs you</div>

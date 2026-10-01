@@ -2,15 +2,15 @@ import { useRef, useState } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { addEvent, addReceiver, deleteEvent, restoreSale, savePassType, setNightPrices, ValidationError } from '../db/repo';
+import { addEvent, addReceiver, deleteEvent, setAgentOf, restoreSale, savePassType, setNightPrices, ValidationError } from '../db/repo';
 import { applyImport, buildBackup, markBackedUp, parseBackup, previewImport, type BackupFile, type ImportPreview } from '../db/backup';
 import { useEvents, usePassTypes, useReceivers, useSetting } from '../db/queries';
 import { CustomerDetail, CustomerList } from './Customers';
 import { Reports } from './Reports';
 import { Gate } from './Gate';
 import { Audit } from './Audit';
-import { connectSync, disconnectSync, syncNow, useSyncStatus } from '../sync';
-import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../auth';
+import { Account, Team } from './Team';
 import { Btn, Card, Chip, Empty, Field, inputCls, useToast } from '../components/ui';
 import { setSetting } from '../db/repo';
 import { testReader } from '../lib/photo';
@@ -20,34 +20,31 @@ import { computePunchState, computeSeats, computeTotal } from '../domain/status'
 
 const Back = () => <Link to="/more" className="text-zinc-400">← More</Link>;
 
+type Level = 'all' | 'admin' | 'super';
+const ROUTES: [string, React.ReactElement, Level][] = [
+  ['backup', <Backup />, 'admin'], ['trash', <Trash />, 'all'], ['nights', <Nights />, 'admin'], ['passes', <Passes />, 'admin'], ['receivers', <Receivers />, 'admin'],
+  ['customers', <CustomerList />, 'all'], ['customers/:id', <CustomerDetail />, 'all'], ['reports', <Reports />, 'all'], ['gate', <Gate />, 'all'], ['audit', <Audit />, 'admin'],
+  ['auto', <AutoSetup />, 'all'], ['account', <Account />, 'all'], ['team', <Team />, 'super'], ['photo', <PhotoSetup />, 'admin'], ['health', <Health />, 'admin'],
+];
+const allowed = (role: string, need: Level) => need === 'all' || (need === 'admin' && role !== 'seller') || (need === 'super' && role === 'super');
+
 export function More() {
+  const a = useAuth(); const role = a.status === 'in' ? a.profile.role : 'seller';
   return (
     <Routes>
       <Route index element={<Menu />} />
-      <Route path="backup" element={<Backup />} />
-      <Route path="trash" element={<Trash />} />
-      <Route path="nights" element={<Nights />} />
-      <Route path="passes" element={<Passes />} />
-      <Route path="receivers" element={<Receivers />} />
-      <Route path="customers" element={<CustomerList />} />
-      <Route path="customers/:id" element={<CustomerDetail />} />
-      <Route path="reports" element={<Reports />} />
-      <Route path="gate" element={<Gate />} />
-      <Route path="audit" element={<Audit />} />
-      <Route path="auto" element={<AutoSetup />} />
-      <Route path="sync" element={<SyncSetup />} />
-      <Route path="photo" element={<PhotoSetup />} />
-      <Route path="health" element={<Health />} />
+      {ROUTES.map(([path, el, need]) => <Route key={path} path={path} element={allowed(role, need) ? el : <div className="space-y-3"><Back /><p className="text-zinc-400">This is not available for your login.</p></div>} />)}
     </Routes>
   );
 }
 
 function Menu() {
-  const items = [['sync', 'Sync — same sales everywhere'], ['inbox', 'Inbox (needs you)'], ['auto', 'Automatic adding'], ['punch', 'Punch in Showmates'], ['reports', 'Reports, CSV & print'], ['gate', 'Gate list (check-in)'], ['customers', 'Customers'], ['backup', 'Backup & restore'], ['nights', 'Nights'], ['passes', 'Pass types & prices'], ['photo', 'Photo reader (add from photo)'], ['receivers', 'Who receives money'], ['trash', 'Trash'], ['audit', 'Change history'], ['health', 'Health check']];
+  const a = useAuth(); const role = a.status === 'in' ? a.profile.role : 'seller';
+  const items: [string, string, Level][] = [['account', 'Account & sync', 'all'], ['team', 'Team & logins (create logins)', 'super'], ['inbox', 'Inbox (needs you)', 'all'], ['auto', 'Automatic adding', 'all'], ['punch', 'Punch in Showmates', 'all'], ['reports', 'Reports, CSV & print', 'all'], ['gate', 'Gate list (check-in)', 'all'], ['customers', 'Customers', 'all'], ['backup', 'Backup & restore', 'admin'], ['nights', 'Nights', 'admin'], ['passes', 'Pass types & prices', 'admin'], ['photo', 'Photo reader (add from photo)', 'admin'], ['receivers', 'Sellers & who receives money', 'admin'], ['trash', 'Trash', 'all'], ['audit', 'Change history', 'admin'], ['health', 'Health check', 'admin']];
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-bold">More</h1>
-      {items.map(([to, l]) => <Link key={to} to={to === 'punch' ? '/punch' : to === 'inbox' ? '/inbox' : to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
+      {items.filter(([, , need]) => allowed(role, need)).map(([to, l]) => <Link key={to} to={to === 'punch' ? '/punch' : to === 'inbox' ? '/inbox' : to}><Card className="mb-2 flex justify-between"><span>{l}</span><span className="text-zinc-500">›</span></Card></Link>)}
     </div>
   );
 }
@@ -186,8 +183,19 @@ function PassRow({ p, onErr }: { p: import('../domain/types').PassType; onErr: (
 function Receivers() {
   const rs = useReceivers(); const [n, setN] = useState('');
   return (
-    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Who receives money</h1>
-      {rs?.map((r) => <Card key={r.id}>{r.name}</Card>)}
+    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Sellers &amp; who receives money</h1>
+      <p className="text-sm text-zinc-400">Each person keeps their own book of sales. If someone sells on another person’s behalf, choose who — their sales then count in that person’s book, and the money can be received by either.</p>
+      {rs?.map((r) => (
+        <Card key={r.id} className="space-y-2">
+          <div className="font-semibold">{r.name}</div>
+          <Field group label={`${r.name.split(' ')[0]} sells for`}>
+            <div className="flex flex-wrap gap-2">
+              <Chip active={!r.agentOf} onClick={() => setAgentOf(r.id, '').catch(() => {})}>Themselves</Chip>
+              {rs.filter((o) => o.id !== r.id && !o.agentOf).map((o) => <Chip key={o.id} active={r.agentOf === o.id} onClick={() => setAgentOf(r.id, o.id).catch(() => {})}>{o.name}</Chip>)}
+            </div>
+          </Field>
+        </Card>
+      ))}
       <input className={inputCls} placeholder="Name (as on UPI)" value={n} onChange={(e) => setN(e.target.value)} />
       <Btn className="w-full" onClick={() => addReceiver(n).then(() => setN('')).catch(() => {})}>Add</Btn>
     </div>
@@ -268,27 +276,3 @@ function AutoSetup() {
   );
 }
 
-function SyncSetup() {
-  const [sp] = useSearchParams(); const st = useSyncStatus(); const toast = useToast();
-  const on = useSetting<boolean>('syncOn', false); const url0 = useSetting<string>('syncUrl', ''); const key0 = useSetting<string>('syncKey', '');
-  const [url, setUrl] = useState<string>(); const [key, setKey] = useState<string>();
-  const u = url ?? sp.get('u') ?? url0; const k = key ?? sp.get('k') ?? key0;
-  const label: Record<string, string> = { off: 'Not connected', idle: 'Waiting…', syncing: 'Syncing…', ok: 'Up to date', offline: 'No internet — will catch up by itself', badkey: 'Wrong sync key', error: st.error ?? 'Problem syncing' };
-  return (
-    <div className="space-y-3"><Back /><h1 className="text-2xl font-bold">Sync</h1>
-      <p className="text-sm text-zinc-400">Keeps sales, payments and prices the same on every phone and lets Claude add sales for you. It works offline and catches up when you are online. Your data stays on this phone too.</p>
-      <Card tone={on && st.state === 'ok' ? 'sage' : undefined} className="space-y-1">
-        <div className="font-extrabold">{on ? label[st.state] : 'Not connected'}</div>
-        {on && st.lastOk && <div className="text-sm opacity-90">Last synced {formatDateTime(st.lastOk)} · sent {st.pushed ?? 0} · received {st.pulled ?? 0}</div>}
-      </Card>
-      <Field label="Sync link"><input className={inputCls} inputMode="url" autoCapitalize="none" value={u} onChange={(e) => setUrl(e.target.value)} placeholder="https://….supabase.co/functions/v1/sync" /></Field>
-      <Field label="Sync key"><input className={inputCls} type="password" autoCapitalize="none" value={k} onChange={(e) => setKey(e.target.value)} /></Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Btn disabled={!u.trim() || !k.trim()} onClick={async () => { await connectSync(u, k); toast('Connected'); }}>{on ? 'Reconnect' : 'Connect'}</Btn>
-        <Btn kind="ghost" disabled={!on} onClick={() => syncNow()}>Sync now</Btn>
-      </div>
-      {on && <Btn kind="danger" className="w-full" onClick={() => disconnectSync()}>Turn sync off</Btn>}
-      <p className="text-xs text-zinc-500">The key stays on this phone and is never included in backups. Screenshots attached to payments stay on the phone they were taken on.</p>
-    </div>
-  );
-}

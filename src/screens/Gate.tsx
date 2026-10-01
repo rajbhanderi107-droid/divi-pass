@@ -1,3 +1,4 @@
+import { BookBar } from '../components/BookBar';
 import { useDeferredValue, useState } from 'react';
 import { useWindow } from '../components/Windowed';
 import { Link } from 'react-router-dom';
@@ -28,6 +29,7 @@ function GateList({ events, views }: { events: EventNight[]; views: SaleView[] }
   return (
     <div className="space-y-3"><Link to="/more" className="text-zinc-400">← More</Link>
       <h1 className="text-2xl font-bold">Gate list</h1>
+      <BookBar />
       <div className="flex gap-2 overflow-x-auto">{events.map((e) => <Chip key={e.id} active={e.id === cur?.id} onClick={() => setSel(e.id)}>{formatDateLabel(e.date)}</Chip>)}</div>
       <Card className="text-center"><div className="text-4xl font-bold text-sand" aria-label="Entered count">{inside}<span className="text-xl text-zinc-400"> / {seats}</span></div><div className="text-sm text-zinc-400">people inside · {seats - inside} still to come</div></Card>
       <input className={inputCls} type="search" placeholder="Search name, phone or DV-number" value={q} onChange={(e) => setQ(e.target.value)} />

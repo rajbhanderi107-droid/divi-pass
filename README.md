@@ -49,6 +49,20 @@ Stack: Vite, React, TypeScript, Tailwind, Dexie (IndexedDB), PWA. See `PLAN.md` 
 - Every save is all-or-nothing and logged; deletes go to Trash for 30 days.
 - The pass price is copied onto each sale, so changing prices never changes old sales.
 
-## Sync (same sales on every phone)
+## Sign-in, roles and sync
 
-More → **Sync** connects the app to a private cloud table (Supabase edge function `sync`, guarded by a secret key). Works offline first; changes upload/download automatically when online. Last edit wins per row. Synced: nights, pass types, buyers, sales, payments, receivers, expenses. Not synced: payment screenshots, Inbox, settings. Open the app once with `#/more/sync?u=<function url>&k=<key>` to prefill the form.
+Everyone signs in (login id + password, or Google). Roles:
+
+- **Super admin** (Raj, Dev): the only ones who see all data, and the only ones who can create logins and passwords (More → Team & logins).
+- **Admin**: sees only their own book, but can also set up nights, prices and people, and use reports and backups. Cannot create logins.
+- **Seller**: sees and adds only their own book.
+
+Admins and sellers get only their own book from the server (and the server refuses writes outside it); they never receive expenses or other sellers' sales, payments or buyers.
+
+Sales sync through the cloud (Supabase edge function `sync`, which checks the sign-in and role on every call). The app works offline and catches up. Signing out clears that phone's copy. Synced: nights, pass types, buyers, sales, payments, receivers, expenses (expenses are never sent to sellers). Not synced: payment screenshots, Inbox, settings.
+
+Google sign-in works only for emails a super admin has added, and needs the Google provider switched on in the Supabase dashboard (Authentication → Sign In / Providers → Google) and the site address in Authentication → URL Configuration.
+
+## Sellers
+
+More → *Sellers & who receives money*. Every sale records **Sold by**. Raj and Dev keep separate books; Divya is set as selling for Raj, so her sales appear in Raj's book and in her own. The switcher at the top of Home, Sales, Money, Reports and Gate picks whose book to show (Everyone shows all). Payments can be received by Raj directly or by Divya; Money shows how much Divya is holding for Raj. Older sales with no seller show under Everyone only. The chosen book is per phone and is not synced.

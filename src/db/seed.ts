@@ -12,7 +12,7 @@ export async function seedIfEmpty() {
       { id: 'pt-solo', name: 'Solo', kind: 'solo', seatsPerUnit: 1, listPrice: 800, price: 650, aliases: ['solo', 'single', 'stag'], sortOrder: 1, active: true, createdAt: t, updatedAt: t },
       { id: 'pt-couple', name: 'Couple', kind: 'couple', seatsPerUnit: 2, listPrice: 1600, price: 1300, aliases: ['couple', 'cpl', 'pair', 'jodi'], sortOrder: 2, active: true, createdAt: t, updatedAt: t },
     ]);
-    await db.receivers.bulkAdd(['Bhanderi Raj', 'Dev Kinner Trivedi'].map((name) => ({ id: 'rc-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, nameLower: name.toLowerCase(), createdAt: t, updatedAt: t })));
+    await db.receivers.bulkAdd([['Bhanderi Raj'], ['Dev Kinner Trivedi'], ['Divya Achariya', 'rc-bhanderi-raj']].map(([name, agentOf]) => ({ id: 'rc-' + name!.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: name!, nameLower: name!.toLowerCase(), ...(agentOf ? { agentOf } : {}), createdAt: t, updatedAt: t })));
     await db.settings.bulkPut([
       { key: 'seeded', value: true }, { key: 'season', value: { from: NIGHTS[0], to: NIGHTS[NIGHTS.length - 1] } },
       { key: 'refCounter', value: 0 }, { key: 'salesSinceBackup', value: 0 },

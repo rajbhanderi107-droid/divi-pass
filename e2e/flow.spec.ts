@@ -1,4 +1,13 @@
 import { expect, test } from '@playwright/test';
+import { mockCloud, signInAs, type Cloud } from './cloud';
+
+let cloud: Cloud;
+// Everyone must sign in now: each test starts signed in as Raj (a super admin) against a stand-in server.
+test.beforeEach(async ({ page }) => {
+  cloud = await mockCloud(page);
+  await signInAs(page, 'raj', 'raj-password');
+  await expect(page.getByRole('heading', { name: 'Divi Pass' })).toBeVisible();
+});
 
 const M3 = 'Name : vanshika banodia\nPass : 5 solo\nNo : +919313585913\nDate : 16th october Friday\n2600 + 650';
 
@@ -333,36 +342,18 @@ test('long lists draw a page at a time and load more while scrolling', async ({ 
 });
 
 test('sync: a sale added by Claude in the cloud appears on the phone, and phone sales reach the cloud', async ({ page }) => {
-  // stand-in for the cloud function: last writer wins, cursor of changes (same rules as the real one)
-  const rows = new Map<string, { row: any; seq: number }>(); let seq = 0; const seen: string[] = [];
-  await page.route('https://sync.test/**', async (route) => {
-    const req = route.request();
-    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' } });
-    const b = req.postDataJSON() as { key: string; since: number; push: any[] };
-    const h = { 'access-control-allow-origin': '*' };
-    if (b.key !== 'right-key') return route.fulfill({ status: 401, headers: h, json: { error: 'Wrong sync key' } });
-    for (const r of b.push) { const k = r.t + '|' + r.id; const c = rows.get(k); if (!c || c.row.updatedAt < r.updatedAt) { rows.set(k, { row: r, seq: ++seq }); seen.push(r.t); } }
-    const list = [...rows.values()].filter((x) => x.seq > b.since).sort((a, c) => a.seq - c.seq);
-    await route.fulfill({ status: 200, headers: h, json: { rows: list.map((x) => x.row), cursor: list.length ? list[list.length - 1].seq : b.since, more: false } });
-  });
-
-  await page.goto('/#/more/sync');
-  await page.getByPlaceholder(/supabase\.co/).fill('https://sync.test/sync');
-  await page.locator('input[type=password]').fill('wrong');
-  await page.getByRole('button', { name: 'Connect', exact: true }).click();
-  await expect(page.getByText('Wrong sync key').first()).toBeVisible();
-  await page.locator('input[type=password]').fill('right-key');
-  await page.getByRole('button', { name: /Connect|Reconnect/ }).first().click();
-  await expect(page.getByText('Up to date')).toBeVisible();
-  expect(seen).toContain('events');                                        // the phone's nights reached the cloud
+  await expect.poll(() => cloud.calls.filter((c) => c === 'raj:sync').length).toBeGreaterThan(0);
+  expect([...cloud.rows.keys()].some((k) => k.startsWith('events|'))).toBe(true);   // the phone's nights reached the cloud
 
   // Claude adds a sale straight into the cloud (what the chat does), using the shared night and pass ids
   const t = Date.now() + 1000;
   const cust = { id: 'cust-cloud', phone: '+919913803737', name: 'Niyati Patel', nameLower: 'niyati patel', createdAt: t, updatedAt: t };
   const sale = { id: 'sale-cloud', refNo: 'DV-CLOUD', eventId: 'ev-2026-10-16', customerId: 'cust-cloud', lines: [{ passTypeId: 'pt-solo', nameSnap: 'Solo', seatsPerUnitSnap: 1, listPriceSnap: 800, unitPriceSnap: 650, qty: 2 }], discount: 0, total: 1300, seats: 2, channel: 'whatsapp', punchState: 'none', createdAt: t, updatedAt: t };
-  rows.set('customers|cust-cloud', { row: { t: 'customers', id: 'cust-cloud', data: cust, updatedAt: t }, seq: ++seq });
-  rows.set('sales|sale-cloud', { row: { t: 'sales', id: 'sale-cloud', data: sale, updatedAt: t }, seq: ++seq });
+  cloud.rows.set('customers|cust-cloud', { row: { t: 'customers', id: 'cust-cloud', data: cust, updatedAt: t }, seq: ++cloud.seq });
+  cloud.rows.set('sales|sale-cloud', { row: { t: 'sales', id: 'sale-cloud', data: sale, updatedAt: t }, seq: ++cloud.seq });
+  await page.goto('/#/more/account');
   await page.getByRole('button', { name: 'Sync now' }).click();
+  await expect(page.getByText('Up to date')).toBeVisible();
   await page.goto('/#/sales');
   await expect(page.getByText('Niyati Patel')).toBeVisible();
   await expect(page.getByText('DV-CLOUD')).toBeVisible();
@@ -371,5 +362,96 @@ test('sync: a sale added by Claude in the cloud appears on the phone, and phone 
   await page.goto('/#/add');
   await page.getByPlaceholder(/Name :/).fill('Name : Local Buyer\nPass : 1 solo\nNo : 9000000055\nDate : 16 oct');
   await page.getByRole('button', { name: 'Save sale' }).click();
-  await expect.poll(() => [...rows.keys()].some((k) => k.startsWith('sales|') && k !== 'sales|sale-cloud'), { timeout: 15000 }).toBe(true);
+  await expect.poll(() => [...cloud.rows.keys()].some((k) => k.startsWith('sales|') && k !== 'sales|sale-cloud'), { timeout: 15000 }).toBe(true);
+});
+
+test('login: wrong password is refused, Google button goes to Google, sign out returns to the login page', async ({ page }) => {
+  await page.goto('/#/more/account');
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await page.getByLabel('Login id').fill('raj'); await page.getByLabel('Password', { exact: true }).fill('nope');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Wrong login id or password');
+  let googleUrl = '';
+  await page.route('https://cndndjgknjulrfutixvx.supabase.co/auth/v1/authorize**', (r) => { googleUrl = r.request().url(); return r.fulfill({ status: 200, contentType: 'text/html', body: 'google' }); });
+  await page.getByRole('button', { name: 'Sign in with Google' }).click();
+  await expect.poll(() => googleUrl).toContain('provider=google');
+});
+
+test('roles: only super admins see everything and create logins; admins and sellers see only their own book', async ({ page }) => {
+  // Raj (super) sells one for Divya and one for Dev, then creates a login
+  for (const [n, ph, who] of [['Divyabuyer One', '9000000071', 'Divya Achariya'], ['Devbuyer Two', '9000000072', 'Dev Kinner Trivedi']] as const) {
+    await page.goto('/#/add');
+    await page.getByPlaceholder(/Name :/).fill(`Name : ${n}\nPass : 1 solo\nNo : ${ph}\nDate : 16 oct`);
+    await page.getByRole('group', { name: 'Sold by' }).getByRole('button', { name: who }).click();
+    await page.getByRole('button', { name: 'Save sale' }).click();
+    await expect(page.getByText(/Saved DV-/)).toBeVisible();
+  }
+  await expect.poll(() => [...cloud.rows.keys()].filter((k) => k.startsWith('sales|')).length, { timeout: 15000 }).toBe(2);
+
+  await page.goto('/#/more/team');
+  await page.getByLabel('Name', { exact: true }).fill('New Seller'); await page.getByLabel('Login id').fill('newseller');
+  await page.getByLabel('Password (8+ characters)').fill('newseller-pass');
+  await page.getByRole('group', { name: 'Role' }).getByRole('button', { name: 'Seller' }).click();
+  await page.getByRole('group', { name: 'Sells as' }).getByRole('button', { name: 'Dev Kinner Trivedi' }).click();
+  await page.getByRole('button', { name: 'Create login' }).click();
+  await expect.poll(() => Object.keys(cloud.users)).toContain('newseller');
+
+  // Divya signs in on the same phone: sees only her sale, and no admin screens
+  await page.goto('/#/more/account');
+  await page.getByRole('button', { name: 'Sign out' }).click(); await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await signInAs(page, 'divya', 'divya-password');
+  await expect(page.getByRole('heading', { name: 'Divi Pass' })).toBeVisible();
+  await page.goto('/#/sales');
+  await expect(page.getByText('Divyabuyer One')).toBeVisible();
+  await expect(page.getByText('Devbuyer Two')).toHaveCount(0);
+  await page.goto('/#/more');
+  await expect(page.getByText('Account & sync')).toBeVisible();
+  for (const hidden of ['Team & logins', 'Nights', 'Pass types & prices', 'Backup & restore', 'Change history']) await expect(page.getByText(hidden)).toHaveCount(0);
+  await page.goto('/#/more/team');
+  await expect(page.getByText('not available for your login')).toBeVisible();
+  await page.goto('/#/add');
+  await expect(page.getByRole('group', { name: 'Sold by' })).toHaveCount(0);   // a seller always sells as themselves
+  await page.getByPlaceholder(/Name :/).fill('Name : Divya Own\nPass : 1 solo\nNo : 9000000073\nDate : 16 oct');
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect(page.getByText(/Saved DV-/)).toBeVisible();
+  await expect.poll(() => [...cloud.rows.values()].some((x) => x.row.t === 'sales' && x.row.data.customerId && x.row.data.sellerId === 'rc-divya-achariya' && x.row.data.sourceText?.includes('Divya Own')), { timeout: 15000 }).toBe(true);
+
+  // An admin gets admin screens (nights, prices) but still only their own book — only super admins see everything
+  await page.goto('/#/more/account');
+  await page.getByRole('button', { name: 'Sign out' }).click(); await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await signInAs(page, 'helper', 'helper-password');
+  await expect(page.getByRole('heading', { name: 'Divi Pass' })).toBeVisible();
+  await page.goto('/#/sales');
+  await expect(page.getByText('Devbuyer Two')).toBeVisible();
+  await expect(page.getByText('Divyabuyer One')).toHaveCount(0);
+  await expect(page.getByText('Divya Own')).toHaveCount(0);
+  await page.goto('/#/more');
+  await expect(page.getByText('Nights', { exact: true })).toBeVisible();
+  await expect(page.getByText('Team & logins')).toHaveCount(0);
+  await page.goto('/#/money');
+  await expect(page.getByText(/Expenses/)).toHaveCount(0);
+});
+
+test("sellers: Divya sells for Raj — Raj's book shows her sale, Dev's does not; money can go to Raj or Divya", async ({ page }) => {
+  await page.goto('/#/add');
+  await page.getByPlaceholder(/Name :/).fill('Name : Divyabuyer Test\nPass : 1 solo\nNo : 9000000077\nDate : 16 oct');
+  await page.getByRole('group', { name: 'Sold by' }).getByRole('button', { name: 'Divya Achariya' }).click();
+  await page.getByRole('button', { name: 'Paid full · UPI' }).click();
+  await page.getByRole('button', { name: 'Bhanderi Raj' }).last().click();   // money direct to Raj
+  await page.getByRole('button', { name: 'Save sale' }).click();
+  await expect(page.getByText(/Saved DV-0001/)).toBeVisible();
+
+  await page.goto('/#/sales');
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Bhanderi Raj' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Dev Kinner Trivedi' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toHaveCount(0);
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Divya Achariya' }).click();
+  await expect(page.getByText('Divyabuyer Test')).toBeVisible();
+  await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Everyone' }).click();
 });

@@ -16,13 +16,13 @@ export type PunchState = 'none' | 'partial' | 'done';
 export interface Sale extends Base {
   refNo: string; eventId: string; customerId: string; lines: SaleLine[]; discount: number;
   total: number; seats: number; channel: Channel; punchState: PunchState; notes?: string;
-  sourceText?: string; sourceHash?: string; cancelledAt?: number; entered?: number; needsCheck?: string[];
+  sourceText?: string; sourceHash?: string; cancelledAt?: number; entered?: number; sellerId?: string; needsCheck?: string[];
 }
 export interface Payment extends Base {
   saleId: string; kind: 'receipt' | 'refund'; amount: number; method: 'upi' | 'cash' | 'other';
   utr?: string; receiverId?: string; paidAt: number; note?: string; attachmentId?: string;
 }
-export interface Receiver extends Base { name: string; nameLower: string }
+export interface Receiver extends Base { name: string; nameLower: string; agentOf?: string }
 export interface AuditRow { seq?: number; at: number; entity: string; entityId: string; action: string; before?: unknown; after?: unknown }
 export interface Setting { key: string; value: unknown }
 export interface Expense extends Base { eventId: string; label: string; amount: number; paidAt: number; receiverId?: string }
