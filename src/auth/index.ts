@@ -97,12 +97,32 @@ async function adopt(session: Session): Promise<void> {
   set({ status: 'in', profile: p });
 }
 
+/** If someone types their Gmail in the login box, find the login id it belongs to. Any failure just means "use what was typed". */
+async function resolveEmail(typed: string): Promise<string> {
+  const id = typed.trim().toLowerCase();
+  if (!id.includes('@') || id.endsWith('@' + LOGIN_DOMAIN)) return loginEmail(id);
+  try {
+    const r = await fetch(FN_URL, { method: 'POST', headers: { 'content-type': 'application/json', apikey: PUBLIC_KEY }, body: JSON.stringify({ action: 'login.resolve', email: id }) });
+    const j = (await r.json()) as { email?: string | null };
+    return j.email ?? id;
+  } catch { return id; }
+}
+
 export async function signIn(login: string, password: string): Promise<void> {
-  const s = await tokenRequest('password', { email: loginEmail(login), password });
+  const s = await tokenRequest('password', { email: await resolveEmail(login), password });
   try { await adopt(s); } catch (e) { set({ status: 'out' }); throw e; }
 }
 
-export function signInWithGoogle(): void {
+/** Google needs to be switched on in the Supabase dashboard; say so instead of landing on a raw error page. */
+export async function signInWithGoogle(): Promise<void> {
+  try {
+    const r = await fetch(`${API_URL}/auth/v1/settings`, { headers: { apikey: PUBLIC_KEY } });
+    const j = (await r.json()) as { external?: { google?: boolean } };
+    if (!j.external?.google) throw new AuthError('Google sign-in is not switched on yet. Sign in with your login id and password.', 'failed');
+  } catch (e) {
+    if (e instanceof AuthError) throw e;
+    throw new AuthError('No internet. Connect once to sign in.', 'offline');
+  }
   const back = location.origin + location.pathname;
   location.assign(`${API_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(back)}`);
 }

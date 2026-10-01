@@ -370,13 +370,24 @@ test('login: wrong password is refused, Google button goes to Google, sign out r
   await page.getByRole('button', { name: 'Sign out' }).click();
   await page.getByRole('button', { name: /Tap again/ }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
-  await page.getByLabel('Login id').fill('raj'); await page.getByLabel('Password', { exact: true }).fill('nope');
+  await page.getByLabel('Login id (or your email)').fill('raj'); await page.getByLabel('Password', { exact: true }).fill('nope');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Wrong login id or password');
   let googleUrl = '';
   await page.route('https://cndndjgknjulrfutixvx.supabase.co/auth/v1/authorize**', (r) => { googleUrl = r.request().url(); return r.fulfill({ status: 200, contentType: 'text/html', body: 'google' }); });
   await page.getByRole('button', { name: 'Sign in with Google' }).click();
   await expect.poll(() => googleUrl).toContain('provider=google');
+});
+
+test('login: typing the Gmail instead of the login id works; Google not switched on shows a clear message', async ({ page }) => {
+  await page.goto('/#/more/account');
+  await page.getByRole('button', { name: 'Sign out' }).click(); await page.getByRole('button', { name: /Tap again/ }).click();
+  cloud.googleOn = false;
+  await page.getByRole('button', { name: 'Sign in with Google' }).click();
+  await expect(page.getByRole('alert')).toContainText('not switched on yet');
+  await page.getByLabel('Login id (or your email)').fill('raj@gmail.test'); await page.getByLabel('Password', { exact: true }).fill('raj-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Divi Pass' })).toBeVisible();
 });
 
 test('roles: only super admins see everything and create logins; admins and sellers see only their own book', async ({ page }) => {

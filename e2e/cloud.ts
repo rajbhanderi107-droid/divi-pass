@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface FakeUser { password: string; name: string; role: 'super' | 'admin' | 'seller'; personId?: string; disabled?: boolean; googleEmail?: string }
-export interface Cloud { users: Record<string, FakeUser>; rows: Map<string, { row: any; seq: number }>; seq: number; calls: string[] }
+export interface Cloud { users: Record<string, FakeUser>; rows: Map<string, { row: any; seq: number }>; seq: number; calls: string[]; googleOn: boolean }
 
 const H = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, authorization, apikey', 'access-control-allow-methods': 'POST, OPTIONS' };
 
@@ -10,12 +10,12 @@ const H = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 
 export async function mockCloud(page: Page): Promise<Cloud> {
   const cloud: Cloud = {
     users: {
-      raj: { password: 'raj-password', name: 'Raj Bhanderi', role: 'super', personId: 'rc-bhanderi-raj' },
+      raj: { password: 'raj-password', name: 'Raj Bhanderi', role: 'super', personId: 'rc-bhanderi-raj', googleEmail: 'raj@gmail.test' },
       dev: { password: 'dev-password', name: 'Dev Trivedi', role: 'super', personId: 'rc-dev-kinner-trivedi' },
       divya: { password: 'divya-password', name: 'Divya Achariya', role: 'seller', personId: 'rc-divya-achariya' },
       helper: { password: 'helper-password', name: 'Helper', role: 'admin', personId: 'rc-dev-kinner-trivedi' },
     },
-    rows: new Map(), seq: 0, calls: [],
+    rows: new Map(), seq: 0, calls: [], googleOn: true,
   };
   const loginOf = (email: string) => email.split('@')[0];
   const ids = (personId: string) => [personId, ...[...cloud.rows.values()].filter((x) => x.row.t === 'receivers' && x.row.data.agentOf === personId).map((x) => x.row.id)];
@@ -23,6 +23,7 @@ export async function mockCloud(page: Page): Promise<Cloud> {
   await page.route('https://cndndjgknjulrfutixvx.supabase.co/**', async (route) => {
     const req = route.request(); const url = req.url();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: H });
+    if (url.includes('/auth/v1/settings')) return route.fulfill({ status: 200, headers: H, json: { external: { google: cloud.googleOn } } });
     if (url.includes('/auth/v1/token')) {
       const b = req.postDataJSON() as any;
       if (url.includes('grant_type=refresh_token')) return route.fulfill({ status: 200, headers: H, json: { access_token: 'tok-' + b.refresh_token.slice(4), refresh_token: b.refresh_token, expires_in: 3600 } });
@@ -31,6 +32,10 @@ export async function mockCloud(page: Page): Promise<Cloud> {
       return route.fulfill({ status: 200, headers: H, json: { access_token: 'tok-' + login, refresh_token: 'ref-' + login, expires_in: 3600 } });
     }
     if (!url.includes('/functions/v1/sync')) return route.fulfill({ status: 404, headers: H, json: {} });
+    if ((req.postDataJSON() as any)?.action === 'login.resolve') {
+      const g = (req.postDataJSON() as any).email; const hit = Object.entries(cloud.users).find(([, u]) => u.googleEmail === g);
+      return route.fulfill({ status: 200, headers: H, json: { email: hit ? `${hit[0]}@login.divipass.app` : null } });
+    }
     const login = (req.headers()['authorization'] ?? '').replace('Bearer tok-', ''); const me = cloud.users[login];
     if (!me) return route.fulfill({ status: 401, headers: H, json: { error: 'Sign in again' } });
     if (me.disabled) return route.fulfill({ status: 403, headers: H, json: { error: 'This login is switched off.' } });
@@ -75,7 +80,7 @@ export async function mockCloud(page: Page): Promise<Cloud> {
 
 export async function signInAs(page: Page, login: string, password: string) {
   await page.goto('/');
-  await page.getByLabel('Login id').fill(login);
+  await page.getByLabel('Login id (or your email)').fill(login);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 }
