@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Divi Garba Promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Mogra&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #0b0210; height: 100%; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { width: auto; height: 100vh; max-width: 100vw; aspect-ratio: 9 / 16; display: block; }
+  body.render canvas { width: 1080px; height: 1920px; max-width: none; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// ---------- Event details (edit and re-render) ----------
+const EVENT = {
+  presenter: 'Divya Achariya presents',
+  title: 'DIVI',
+  subtitle: 'NAVRATRI GARBA 2026',
+  gujarati: 'નવરાત્રી ગરબા',
+  firstNight: 11, lastNight: 19, month: 'OCTOBER 2026',
+  passes: [
+    { name: 'SOLO PASS', price: '₹650', list: '₹800' },
+    { name: 'COUPLE PASS', price: '₹1,300', list: '₹1,600' },
+  ],
+  cta: 'Book your pass on WhatsApp',
+};
+const DURATION = 21;          // seconds
+const BPM = 120, BEAT = 60 / BPM;
+
+// ---------- Helpers ----------
+const W = 1080, H = 1920;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeIn = x => x * x * x;
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const easeElastic = x => x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - .75) * (TAU / 3)) + 1;
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+const C = {
+  gold1: '#fff3c4', gold2: '#ffc94a', gold3: '#d98b10', gold4: '#8a4a05',
+  marigold: '#ff9f1c', marigold2: '#ffcf33', saffron: '#ff6b1a',
+  magenta: '#e0217a', pink: '#ff4fa0', teal: '#1fb5a8', green: '#2f8f4e',
+  cream: '#f8e3c0', ink: '#1b0618', night: '#12041f', maroon: '#4a0b2e',
+};
+
+function goldGrad(y0, y1) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, C.gold1); g.addColorStop(.45, C.gold2); g.addColorStop(.8, C.gold3); g.addColorStop(1, C.gold4);
+  return g;
+}
+
+function text(str, x, y, { font = '600 48px Poppins', fill = '#fff', align = 'center', spacing = 0, alpha = 1, stroke = null, strokeW = 0, shadow = null, baseline = 'alphabetic' } = {}) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = font; ctx.textAlign = align; ctx.textBaseline = baseline;
+  ctx.letterSpacing = spacing + 'px';
+  if (shadow) { ctx.shadowColor = shadow.color; ctx.shadowBlur = shadow.blur; ctx.shadowOffsetY = shadow.y || 0; }
+  if (stroke) { ctx.lineJoin = 'round'; ctx.strokeStyle = stroke; ctx.lineWidth = strokeW; ctx.strokeText(str, x, y); ctx.shadowColor = 'transparent'; }
+  ctx.fillStyle = fill; ctx.fillText(str, x, y);
+  ctx.restore();
+}
+
+// ---------- Background ----------
+const dotsRng = rng(7);
+const bgDots = Array.from({ length: 160 }, () => ({ x: dotsRng() * W, y: dotsRng() * H, r: 2 + dotsRng() * 4, p: dotsRng() * TAU, c: dotsRng() }));
+function background(t, hueShift = 0) {
+  const g = ctx.createRadialGradient(W / 2, H * .42, 50, W / 2, H * .45, H * .8);
+  const mix = (Math.sin(t * .5) + 1) / 2 * .4 + hueShift;
+  g.addColorStop(0, `rgb(${lerp(110, 140, mix)|0}, ${lerp(16, 22, mix)|0}, ${lerp(58, 40, mix)|0})`);
+  g.addColorStop(.5, '#3a0a33');
+  g.addColorStop(1, C.night);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // bandhani dots drifting upwards
+  for (const d of bgDots) {
+    const y = ((d.y - t * 18 * (0.5 + d.c)) % H + H) % H;
+    const a = .12 + .12 * Math.sin(t * 2 + d.p);
+    ctx.fillStyle = d.c < .5 ? `rgba(255,201,74,${a})` : `rgba(255,79,160,${a})`;
+    ctx.beginPath(); ctx.arc(d.x, y, d.r, 0, TAU); ctx.fill();
+  }
+}
+
+function vignette() {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .75);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+// ---------- Mandala ----------
+function petalRing(R, n, len, wid, rot, fill, stroke) {
+  for (let i = 0; i < n; i++) {
+    ctx.save(); ctx.rotate(rot + i * TAU / n); ctx.translate(0, -R);
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(wid, -len * .35, wid * .6, -len * .8, 0, -len);
+    ctx.bezierCurveTo(-wid * .6, -len * .8, -wid, -len * .35, 0, 0);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.restore();
+  }
+}
+function dotRing(R, n, r, rot, fill) {
+  ctx.fillStyle = fill;
+  for (let i = 0; i < n; i++) { const a = rot + i * TAU / n; ctx.beginPath(); ctx.arc(Math.cos(a) * R, Math.sin(a) * R, r, 0, TAU); ctx.fill(); }
+}
+function mandala(cx, cy, scale, rot, p, alpha = 1) {
+  if (alpha <= 0 || p <= 0) return;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.globalAlpha *= alpha;
+  const L = (i, n = 7) => easeBack(clamp(p * n - i)); // staggered layer reveal
+  const layer = (i, fn) => { const k = L(i); if (k <= 0) return; ctx.save(); ctx.scale(k, k); ctx.globalAlpha *= clamp(k); fn(); ctx.restore(); };
+  layer(6, () => { petalRing(330, 32, 80, 22, -rot * .5, 'rgba(255,201,74,.10)', 'rgba(255,201,74,.55)'); dotRing(430, 48, 5, rot * .3, C.gold2); });
+  layer(5, () => { petalRing(250, 24, 90, 30, rot * .7, 'rgba(224,33,122,.35)', 'rgba(255,243,196,.8)'); });
+  layer(4, () => { ctx.strokeStyle = C.gold2; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 250, 0, TAU); ctx.stroke(); dotRing(270, 36, 6, -rot, C.gold1); });
+  layer(3, () => { petalRing(150, 16, 100, 38, -rot, 'rgba(255,159,28,.55)', C.gold1); });
+  layer(2, () => { ctx.strokeStyle = C.gold1; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 150, 0, TAU); ctx.stroke(); petalRing(70, 12, 80, 26, rot * 1.3, 'rgba(31,181,168,.6)', C.gold1); });
+  layer(1, () => { dotRing(110, 24, 4, rot, C.gold2); });
+  layer(0, () => { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 70); g.addColorStop(0, C.gold1); g.addColorStop(1, C.gold3); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 60, 0, TAU); ctx.fill(); petalRing(0, 8, 52, 18, -rot * 2, C.magenta, null); ctx.fillStyle = C.gold1; ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill(); });
+  ctx.restore();
+}
+
+function glow(cx, cy, r, color, alpha) {
+  if (alpha <= 0) return;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, r * 2, r * 2); ctx.restore();
+}
+
+// ---------- Toran (marigold garland) ----------
+function marigold(x, y, r, c1, c2) {
+  ctx.fillStyle = c1; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = c2;
+  for (let i = 0; i < 6; i++) { const a = i * TAU / 6; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * .45, y + Math.sin(a) * r * .45, r * .38, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = 'rgba(120,40,0,.5)'; ctx.beginPath(); ctx.arc(x, y, r * .25, 0, TAU); ctx.fill();
+}
+function leaf(x, y, len, ang) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = C.green; ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(len * .45, len * .5, 0, len); ctx.quadraticCurveTo(-len * .45, len * .5, 0, 0); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,255,200,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, len - 4); ctx.stroke();
+  ctx.restore();
+}
+function toran(t, drop) {
+  if (drop <= 0) return;
+  const off = (1 - drop) * -260;
+  ctx.save(); ctx.translate(0, off);
+  const swags = 3, sw = W / swags;
+  for (let s = 0; s < swags; s++) {
+    const x0 = s * sw;
+    for (let i = 0; i <= 14; i++) {
+      const u = i / 14, x = x0 + u * sw, y = 40 + Math.sin(u * Math.PI) * 70 + Math.sin(t * 3 + s) * 4 * Math.sin(u * Math.PI);
+      marigold(x, y, 17, i % 2 ? C.marigold : C.saffron, i % 2 ? C.marigold2 : C.marigold);
+    }
+  }
+  for (let k = 0; k <= swags; k++) {         // hanging strands between swags
+    const x = k * sw, sway = Math.sin(t * 2.4 + k) * 6;
+    for (let j = 0; j < 7; j++) marigold(x + sway * j / 6, 60 + j * 30, 15, j % 2 ? C.marigold2 : C.saffron, j % 2 ? C.marigold : C.marigold2);
+    leaf(x + sway, 270, 46, Math.sin(t * 2.4 + k) * .2);
+  }
+  for (let i = 0; i < 18; i++) leaf(30 + i * (W - 60) / 17, 20, 40, Math.sin(t * 2 + i) * .15); // mango leaves at the top
+  ctx.restore();
+}
+
+// ---------- Diya ----------
+function diya(x, y, s, lit, t, seed = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  if (lit > 0) glow(0, -40, 120, 'rgba(255,170,40,.75)', lit * (0.85 + .15 * Math.sin(t * 13 + seed)));
+  // bowl
+  const g = ctx.createLinearGradient(0, -10, 0, 30);
+  g.addColorStop(0, '#e2733a'); g.addColorStop(1, '#7a2a10');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-60, -8); ctx.quadraticCurveTo(0, 55, 60, -8); ctx.quadraticCurveTo(70, -14, 76, -20); ctx.quadraticCurveTo(10, -2, -60, -8); ctx.fill();
+  ctx.fillStyle = C.gold2; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 18, 10, 3.5, 0, TAU); ctx.fill(); }
+  // flame
+  if (lit > 0) {
+    const fl = 1 + .08 * Math.sin(t * 17 + seed) + .05 * Math.sin(t * 29 + seed * 2);
+    ctx.save(); ctx.translate(62, -22); ctx.scale(lit * fl, lit * fl); ctx.rotate(Math.sin(t * 7 + seed) * .08);
+    const fg = ctx.createRadialGradient(0, -14, 2, 0, -14, 34);
+    fg.addColorStop(0, '#fffbe0'); fg.addColorStop(.4, '#ffd34a'); fg.addColorStop(1, 'rgba(255,90,20,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(16, -10, 10, -32, 0, -54); ctx.bezierCurveTo(-10, -32, -16, -10, 0, 0); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------- Sparkles ----------
+const spRng = rng(42);
+const sparks = Array.from({ length: 90 }, () => ({ x: spRng() * W, y: spRng() * H, s: 4 + spRng() * 10, p: spRng() * TAU, v: .6 + spRng() * 1.6 }));
+function sparkle(x, y, s, a, rot = 0) {
+  if (a <= 0) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha *= a; ctx.fillStyle = C.gold1;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const r = i % 2 ? s * .25 : s; const ang = i * Math.PI / 4; ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function sparkleField(t, amount = 1) {
+  for (const p of sparks) {
+    const tw = Math.max(0, Math.sin(t * p.v * 2.5 + p.p));
+    sparkle(p.x, (p.y - t * 40 * p.v + H * 10) % H, p.s * tw, tw * amount, t * p.v);
+  }
+}
+function burst(cx, cy, t0, t, n = 28, speed = 900, seed = 3) {
+  const k = t - t0; if (k < 0 || k > 1.2) return;
+  const r = rng(seed);
+  for (let i = 0; i < n; i++) {
+    const a = r() * TAU, v = speed * (.4 + r() * .6), d = v * easeOut(clamp(k / 1.2));
+    sparkle(cx + Math.cos(a) * d, cy + Math.sin(a) * d + k * k * 200, 6 + r() * 12, 1 - k / 1.2, k * 6);
+  }
+}
+
+// ---------- Dancers ----------
+const dancerColors = [
+  ['#e0217a', '#ffc94a'], ['#ff6b1a', '#1fb5a8'], ['#1fb5a8', '#ff4fa0'], ['#ffc94a', '#e0217a'],
+  ['#8a2be2', '#ffc94a'], ['#ff4fa0', '#2f8f4e'], ['#2f8f4e', '#ff9f1c'], ['#ff9f1c', '#8a2be2'],
+];
+function dancer(x, y, s, t, i, facing) {
+  const [skirt, trim] = dancerColors[i % dancerColors.length];
+  const beat = t / BEAT + i * .5;
+  const bob = -Math.abs(Math.sin(beat * Math.PI)) * 10;
+  const flare = .5 + .5 * Math.sin(beat * Math.PI);
+  ctx.save(); ctx.translate(x, y + bob * s); ctx.scale(s * facing, s);
+  const body = '#24081f';
+  // ghagra
+  const hw = 62 + 34 * flare, wy = -98;
+  ctx.fillStyle = skirt; ctx.beginPath(); ctx.moveTo(-15, wy);
+  ctx.quadraticCurveTo(-hw * .7, -40, -hw, 0);
+  for (let k = 0; k <= 8; k++) { const u = k / 8; ctx.lineTo(lerp(-hw, hw, u), 6 * Math.sin(u * Math.PI * 4 + beat * 2)); }
+  ctx.quadraticCurveTo(hw * .7, -40, 15, wy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = trim; ctx.lineWidth = 9; ctx.beginPath();
+  for (let k = 0; k <= 8; k++) { const u = k / 8; ctx.lineTo(lerp(-hw * .97, hw * .97, u), -8 + 6 * Math.sin(u * Math.PI * 4 + beat * 2)); }
+  ctx.stroke();
+  ctx.fillStyle = C.gold1; // mirror work
+  for (let k = 1; k < 8; k++) { const u = k / 8; ctx.beginPath(); ctx.arc(lerp(-hw * .8, hw * .8, u), -28 + 4 * Math.sin(u * 9 + beat), 3.5, 0, TAU); ctx.fill(); }
+  // legs/feet
+  ctx.fillStyle = body; ctx.fillRect(-12, -2, 9, 10); ctx.fillRect(4, -2, 9, 10);
+  // torso (choli)
+  ctx.fillStyle = trim; ctx.beginPath(); ctx.moveTo(-15, wy); ctx.lineTo(-18, -138); ctx.lineTo(18, -138); ctx.lineTo(15, wy); ctx.closePath(); ctx.fill();
+  // dupatta
+  ctx.strokeStyle = skirt; ctx.globalAlpha *= .85; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(14, -136); ctx.quadraticCurveTo(-30, -110 + flare * 10, -46 - flare * 18, -70 + Math.sin(beat * 2) * 10); ctx.stroke();
+  ctx.globalAlpha /= .85;
+  // head
+  ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, -158, 14, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(-9, -166, 8, 0, TAU); ctx.fill(); // bun
+  ctx.fillStyle = C.gold2; ctx.beginPath(); ctx.arc(10, -150, 2.5, 0, TAU); ctx.fill(); // earring
+  // arms + dandiya
+  const swing = Math.sin(beat * Math.PI);           // -1..1, sticks meet on the beat
+  const armL = -2.2 + swing * .55, armR = -.95 - swing * .55;
+  const arm = (sx, sy, a, a2) => {
+    const ex = sx + Math.cos(a) * 26, ey = sy + Math.sin(a) * 26;
+    const hx = ex + Math.cos(a2) * 24, hy = ey + Math.sin(a2) * 24;
+    ctx.strokeStyle = body; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.strokeStyle = C.gold2; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(hx - Math.cos(a2 - .9) * 8, hy - Math.sin(a2 - .9) * 8); ctx.lineTo(hx + Math.cos(a2 - .9) * 48, hy + Math.sin(a2 - .9) * 48); ctx.stroke();
+    ctx.strokeStyle = C.magenta; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(hx + Math.cos(a2 - .9) * 30, hy + Math.sin(a2 - .9) * 30); ctx.lineTo(hx + Math.cos(a2 - .9) * 40, hy + Math.sin(a2 - .9) * 40); ctx.stroke();
+  };
+  arm(-14, -134, armL, armL + .5);
+  arm(14, -134, armR, armR - .5);
+  ctx.restore();
+}
+function garbaCircle(cx, cy, R, t, alpha, n = 8) {
+  if (alpha <= 0) return;
+  ctx.save(); ctx.globalAlpha *= alpha;
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    const a = i * TAU / n + t * .55;
+    list.push({ i, x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R * .28, d: Math.sin(a), f: Math.sin(a) > 0 ? 1 : -1 });
+  }
+  list.sort((p, q) => p.d - q.d);
+  // floor ring
+  ctx.strokeStyle = 'rgba(255,201,74,.35)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.ellipse(cx, cy + 10, R * 1.05, R * .3, 0, 0, TAU); ctx.stroke();
+  for (const p of list) {
+    ctx.save(); ctx.globalAlpha *= lerp(.55, 1, (p.d + 1) / 2);
+    dancer(p.x, p.y, lerp(1.25, 1.85, (p.d + 1) / 2), t, p.i, -p.f);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------- Ticket card ----------
+function ticket(x, y, w, h, pass, k, t) {
+  ctx.save(); ctx.translate(x, y);
+  const r = 26, notch = 30;
+  ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+  const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, '#fbe9cc'); g.addColorStop(1, '#e8c493');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2 + r, -h / 2); ctx.lineTo(w / 2 - r, -h / 2); ctx.arcTo(w / 2, -h / 2, w / 2, -h / 2 + r, r);
+  ctx.lineTo(w / 2, -notch); ctx.arc(w / 2, 0, notch, -Math.PI / 2, Math.PI / 2, true);
+  ctx.lineTo(w / 2, h / 2 - r); ctx.arcTo(w / 2, h / 2, w / 2 - r, h / 2, r);
+  ctx.lineTo(-w / 2 + r, h / 2); ctx.arcTo(-w / 2, h / 2, -w / 2, h / 2 - r, r);
+  ctx.lineTo(-w / 2, notch); ctx.arc(-w / 2, 0, notch, Math.PI / 2, -Math.PI / 2, true);
+  ctx.lineTo(-w / 2, -h / 2 + r); ctx.arcTo(-w / 2, -h / 2, -w / 2 + r, -h / 2, r);
+  ctx.closePath(); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = C.magenta; ctx.fillRect(-w / 2, -h / 2, 26, h);
+  ctx.fillStyle = C.gold2; for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(-w / 2 + 13, -h / 2 + 24 + i * (h - 48) / 8, 5, 0, TAU); ctx.fill(); }
+  // shine sweep
+  const sx = lerp(-w, w * 1.2, clamp((t % 2.2) / 1.1));
+  const sg = ctx.createLinearGradient(sx - 80, 0, sx + 80, 0);
+  sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sg; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.restore();
+  ctx.setLineDash([10, 10]); ctx.strokeStyle = 'rgba(90,40,20,.35)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(w / 2 - 260, -h / 2 + 24); ctx.lineTo(w / 2 - 260, h / 2 - 24); ctx.stroke(); ctx.setLineDash([]);
+  text(pass.name, -w / 2 + 64, -26, { font: '800 50px Poppins', fill: '#3a1216', align: 'left', spacing: 3 });
+  text('9 nights · ' + EVENT.firstNight + '–' + EVENT.lastNight + ' Oct', -w / 2 + 64, 32, { font: '600 34px Poppins', fill: '#7a3a2a', align: 'left' });
+  text('DIVI', -w / 2 + 64, 86, { font: '44px "Yatra One"', fill: C.magenta, align: 'left', spacing: 4 });
+  // price
+  const pk = easeBack(clamp(k));
+  ctx.save(); ctx.translate(w / 2 - 140, 6); ctx.scale(pk, pk);
+  text(pass.price, 0, 18, { font: '800 64px Poppins', fill: C.magenta, align: 'center' });
+  text(pass.list, 0, -52, { font: '600 34px Poppins', fill: '#8a6a5a', align: 'center' });
+  ctx.strokeStyle = C.saffron; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-50, -63); ctx.lineTo(-50 + 100 * clamp(k * 1.4 - .2), -63); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+// ---------- Gold title with shine ----------
+const off = document.createElement('canvas'); off.width = W; off.height = 600;
+const octx = off.getContext('2d');
+function goldTitle(letters, cy, size, t, tIn, stagger = .12) {
+  octx.clearRect(0, 0, W, 600);
+  octx.font = `${size}px "Yatra One"`; octx.textBaseline = 'alphabetic'; octx.letterSpacing = '6px';
+  const widths = letters.map(l => octx.measureText(l).width);
+  const total = widths.reduce((a, b) => a + b, 0);
+  let x = W / 2 - total / 2;
+  const base = 300 + size * .35;
+  letters.forEach((l, i) => {
+    const k = clamp((t - tIn - i * stagger) / .7);
+    if (k > 0) {
+      const e = easeElastic(k);
+      octx.save(); octx.translate(x + widths[i] / 2, base - (1 - e) * 260);
+      octx.rotate((1 - e) * (i % 2 ? .4 : -.4)); octx.globalAlpha = clamp(k * 3);
+      octx.lineJoin = 'round'; octx.strokeStyle = '#3a0718'; octx.lineWidth = 22; octx.strokeText(l, -widths[i] / 2, 0);
+      const g = octx.createLinearGradient(0, -size * .75, 0, size * .05);
+      g.addColorStop(0, C.gold1); g.addColorStop(.5, C.gold2); g.addColorStop(.85, C.gold3); g.addColorStop(1, C.gold4);
+      octx.fillStyle = g; octx.fillText(l, -widths[i] / 2, 0);
+      octx.restore();
+    }
+    x += widths[i];
+  });
+  // shine
+  const s = ((t - tIn - 1) % 2.5) / 1;
+  if (s > 0 && s < 1) {
+    octx.save(); octx.globalCompositeOperation = 'source-atop';
+    const sx = lerp(W / 2 - total, W / 2 + total, s);
+    const g = octx.createLinearGradient(sx - 90, 0, sx + 90, 60);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.85)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    octx.fillStyle = g; octx.fillRect(0, 0, W, 600); octx.restore();
+  }
+  ctx.save(); ctx.shadowColor = 'rgba(255,170,40,.6)'; ctx.shadowBlur = 50;
+  ctx.drawImage(off, 0, cy - base); ctx.restore();
+}
+
+// ---------- Scenes ----------
+// Each scene: [start, end, draw(localTime, sceneProgress, alpha)]
+const T = { title: 3, dance: 7, dates: 11, passes: 14, outro: 17.5 };
+function sceneAlpha(t, a, b, fi = .35, fo = .35) { return Math.min(prog(t, a, a + fi), 1 - prog(t, b - fo, b)); }
+
+function sceneIntro(t) {
+  const a = sceneAlpha(t, -1, T.title + .2, .1, .4);
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  glow(W / 2, H * .45, 700, 'rgba(255,140,40,.55)', easeOut(prog(t, .2, 2.8)));
+  mandala(W / 2, H * .45, lerp(.6, 1.05, easeOut(prog(t, 0, 3))), t * .35, prog(t, .1, 2.6));
+  text(EVENT.gujarati, W / 2, H * .45 + 600, { font: '78px Mogra', fill: C.gold1, alpha: easeOut(prog(t, 1.4, 2.2)), shadow: { color: 'rgba(255,160,40,.8)', blur: 30 } });
+  text('NINE NIGHTS · ONE RHYTHM', W / 2, H * .45 + 690, { font: '600 34px Poppins', fill: C.cream, spacing: 10, alpha: easeOut(prog(t, 1.9, 2.6)) });
+  ctx.restore();
+}
+
+function sceneTitle(t) {
+  const a = sceneAlpha(t, T.title, T.dance + .3, .05, .5);
+  if (a <= 0) return;
+  const lt = t - T.title;
+  ctx.save(); ctx.globalAlpha = a;
+  glow(W / 2, 860, 650, 'rgba(255,120,40,.5)', 1);
+  mandala(W / 2, 860, 1.55 + lt * .03, t * .25, 1, .35);
+  toran(t, easeBack(prog(lt, .1, .9)));
+  text(EVENT.presenter.toUpperCase(), W / 2, 610, { font: '600 40px Poppins', fill: C.cream, spacing: 9, alpha: easeOut(prog(lt, .3, .9)) });
+  goldTitle(EVENT.title.split(''), 900, 330, t, T.title + .35);
+  const sp = easeOut(prog(lt, 1.4, 2.1));
+  ctx.save(); ctx.translate(W / 2, 1100);
+  ctx.fillStyle = C.magenta; ctx.globalAlpha *= sp;
+  const pw = 760 * sp; ctx.beginPath(); ctx.roundRect(-pw / 2, -54, pw, 92, 46); ctx.fill();
+  ctx.restore();
+  text(EVENT.subtitle, W / 2, 1110, { font: '800 46px Poppins', fill: '#fff', spacing: 6, alpha: prog(lt, 1.8, 2.2) });
+  for (let i = 0; i < 5; i++) diya(W / 2 + (i - 2) * 190, 1420 + Math.abs(i - 2) * -26, 1, easeOut(prog(lt, 2 + i * .12, 2.4 + i * .12)), t, i);
+  burst(W / 2, 880, T.title + .5, t, 36, 900, 11);
+  ctx.restore();
+}
+
+function sceneDance(t) {
+  const a = sceneAlpha(t, T.dance, T.dates + .3, .3, .5);
+  if (a <= 0) return;
+  const lt = t - T.dance;
+  ctx.save(); ctx.globalAlpha = a;
+  // moon / mandala backdrop
+  glow(W / 2, 760, 620, 'rgba(255,170,60,.65)', 1);
+  ctx.fillStyle = 'rgba(255,214,140,.18)'; ctx.beginPath(); ctx.arc(W / 2, 760, 380, 0, TAU); ctx.fill();
+  mandala(W / 2, 760, .95, -t * .3, 1, .55);
+  text('Let the', W / 2, 330, { font: '600 54px Poppins', fill: C.cream, alpha: easeOut(prog(lt, .2, .7)) });
+  const k = easeBack(prog(lt, .4, 1));
+  ctx.save(); ctx.translate(W / 2, 470); ctx.scale(k, k);
+  text('DHOL', 0, 0, { font: '150px "Yatra One"', fill: goldGrad(-120, 10), stroke: '#3a0718', strokeW: 16, spacing: 8 });
+  ctx.restore();
+  text('begin', W / 2, 560, { font: '600 54px Poppins', fill: C.cream, alpha: easeOut(prog(lt, .7, 1.2)) });
+  garbaCircle(W / 2, 1300, 380, t, easeOut(prog(lt, .2, 1)));
+  // dandiya clash sparkles on every beat
+  const beatPhase = (t / BEAT) % 1;
+  for (let i = 0; i < 4; i++) sparkle(W / 2 + (i - 1.5) * 220, 1080 + (i % 2) * 60, 26 * (1 - beatPhase), 1 - beatPhase, i);
+  text('9 NIGHTS OF GARBA', W / 2, 1720, { font: '800 64px Poppins', fill: '#fff', spacing: 6, alpha: easeOut(prog(lt, 1.2, 1.8)), shadow: { color: C.magenta, blur: 30 } });
+  ctx.restore();
+}
+
+function sceneDates(t) {
+  const a = sceneAlpha(t, T.dates, T.passes + .3, .3, .5);
+  if (a <= 0) return;
+  const lt = t - T.dates;
+  ctx.save(); ctx.globalAlpha = a;
+  glow(W / 2, 600, 600, 'rgba(224,33,122,.45)', 1);
+  text('SAVE THE DATES', W / 2, 330, { font: '600 44px Poppins', fill: C.cream, spacing: 12, alpha: easeOut(prog(lt, .1, .6)) });
+  const k = easeBack(prog(lt, .2, .8));
+  ctx.save(); ctx.translate(W / 2, 560); ctx.scale(k, k);
+  text(`${EVENT.firstNight}–${EVENT.lastNight}`, 0, 0, { font: '230px "Yatra One"', fill: goldGrad(-180, 20), stroke: '#3a0718', strokeW: 18 });
+  ctx.restore();
+  text(EVENT.month, W / 2, 680, { font: '800 64px Poppins', fill: '#fff', spacing: 14, alpha: easeOut(prog(lt, .5, 1)) });
+  // nine diyas light up, one per night
+  for (let i = 0; i < 9; i++) {
+    const col = i % 3, row = (i / 3) | 0;
+    const x = W / 2 + (col - 1) * 300, y = 960 + row * 290;
+    const lit = easeOut(prog(lt, .6 + i * .2, .9 + i * .2));
+    const pop = easeBack(prog(lt, .3 + i * .06, .7 + i * .06));
+    ctx.save(); ctx.globalAlpha *= clamp(pop);
+    diya(x, y, .95 * pop, lit, t, i);
+    text(String(EVENT.firstNight + i), x, y + 90, { font: '800 52px Poppins', fill: lit > .5 ? C.gold1 : 'rgba(255,255,255,.45)' });
+    text('NIGHT ' + (i + 1), x, y + 132, { font: '600 26px Poppins', fill: 'rgba(248,227,192,.7)', spacing: 4 });
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function scenePasses(t) {
+  const a = sceneAlpha(t, T.passes, T.outro + .3, .3, .5);
+  if (a <= 0) return;
+  const lt = t - T.passes;
+  ctx.save(); ctx.globalAlpha = a;
+  glow(W / 2, 900, 700, 'rgba(255,140,40,.4)', 1);
+  mandala(W / 2, 960, 1.3, t * .2, 1, .25);
+  text('PASSES', W / 2, 400, { font: '160px "Yatra One"', fill: goldGrad(-120, 10), stroke: '#3a0718', strokeW: 14, spacing: 8, alpha: easeOut(prog(lt, 0, .5)) });
+  text('now open', W / 2, 490, { font: '600 54px Poppins', fill: C.cream, spacing: 6, alpha: easeOut(prog(lt, .3, .8)) });
+  EVENT.passes.forEach((p, i) => {
+    const k = easeOut(prog(lt, .4 + i * .35, 1.1 + i * .35));
+    const x = W / 2 + (1 - k) * (i ? 1 : -1) * 1100;
+    ctticket(p, x, 820 + i * 400, k, lt - 1 - i * .35, t);
+  });
+  text('Limited passes every night', W / 2, 1640, { font: '600 40px Poppins', fill: C.gold1, alpha: easeOut(prog(lt, 1.6, 2.1)) });
+  ctx.restore();
+}
+function ctticket(p, x, y, k, pk, t) { ctx.save(); ctx.globalAlpha *= clamp(k * 1.5); ctx.translate(x, y); ctx.rotate((1 - k) * .15); ticket(0, 0, 900, 320, p, clamp(pk / .6), t); ctx.restore(); }
+
+function sceneOutro(t) {
+  const a = Math.min(prog(t, T.outro, T.outro + .3), 1 - prog(t, DURATION - .7, DURATION));
+  if (a <= 0) return;
+  const lt = t - T.outro;
+  ctx.save(); ctx.globalAlpha = a;
+  glow(W / 2, 820, 750, 'rgba(255,140,40,.6)', 1);
+  mandala(W / 2, 820, lerp(.7, 1.15, easeOut(prog(lt, 0, 1.2))), t * .3, 1, .9);
+  text(EVENT.presenter.toUpperCase(), W / 2, 330, { font: '600 38px Poppins', fill: C.cream, spacing: 9, alpha: easeOut(prog(lt, .1, .6)) });
+  goldTitle(EVENT.title.split(''), 1330, 260, t, T.outro + .15, .08);
+  text(EVENT.subtitle, W / 2, 1440, { font: '800 44px Poppins', fill: '#fff', spacing: 6, alpha: easeOut(prog(lt, .6, 1.1)) });
+  text(`${EVENT.firstNight}–${EVENT.lastNight} October`, W / 2, 1510, { font: '600 44px Poppins', fill: C.gold1, spacing: 4, alpha: easeOut(prog(lt, .8, 1.3)) });
+  const pk = easeBack(prog(lt, 1.1, 1.6));
+  const pulse = 1 + .04 * Math.sin((t / BEAT) * Math.PI);
+  ctx.save(); ctx.translate(W / 2, 1660); ctx.scale(pk * pulse, pk * pulse);
+  ctx.shadowColor = 'rgba(37,211,102,.6)'; ctx.shadowBlur = 40;
+  ctx.fillStyle = '#25a85a'; ctx.beginPath(); ctx.roundRect(-400, -58, 800, 116, 58); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.translate(W / 2, 1660); ctx.scale(pk * pulse, pk * pulse);
+  text(EVENT.cta, 0, 16, { font: '800 42px Poppins', fill: '#fff' });
+  ctx.restore();
+  burst(W / 2, 820, T.outro + .2, t, 40, 1000, 21);
+  ctx.restore();
+}
+
+// Beat-synced flash on scene cuts
+function flash(t) {
+  for (const c of [T.title, T.dance, T.dates, T.passes, T.outro]) {
+    const k = t - c;
+    if (k >= 0 && k < .45) { ctx.fillStyle = `rgba(255,236,190,${.55 * (1 - k / .45)})`; ctx.fillRect(0, 0, W, H); }
+  }
+}
+
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  background(t);
+  sparkleField(t, .6);
+  sceneIntro(t); sceneTitle(t); sceneDance(t); sceneDates(t); scenePasses(t); sceneOutro(t);
+  flash(t);
+  vignette();
+  // fade from / to black
+  const fade = Math.max(1 - prog(t, 0, .6), prog(t, DURATION - .5, DURATION));
+  if (fade > 0) { ctx.fillStyle = `rgba(0,0,0,${fade})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.renderFrame = render;
+window.DURATION = DURATION;
+window.ready = document.fonts.load('80px "Yatra One"').then(() => document.fonts.load('80px Mogra')).then(() => document.fonts.load('800 40px Poppins')).then(() => document.fonts.load('600 40px Poppins')).then(() => document.fonts.ready);
+
+const params = new URLSearchParams(location.search);
+if (params.has('render')) document.body.classList.add('render');
+else window.ready.then(() => {
+  if (params.has('t')) { render(parseFloat(params.get('t'))); return; }
+  const start = performance.now();
+  const loop = now => { render(((now - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
