@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { db, SYNC_TABLES } from '../db/schema';
 import { applying, syncOnce, type SyncResponse, type SyncRow } from './engine';
 import { api, AuthError, currentProfile } from '../auth';
+import { extendSeason } from '../db/seed';
 
 export type SyncState = 'off' | 'idle' | 'syncing' | 'ok' | 'offline' | 'auth' | 'error';
 export interface SyncStatus { state: SyncState; lastOk?: number; error?: string; pushed?: number; pulled?: number }
@@ -33,6 +34,7 @@ export function syncNow(): Promise<void> {
       set({ ...status, state: 'syncing', error: undefined });
       try {
         const r = await syncOnce(transport);
+        if (r.pulled) await extendSeason();
         set({ state: 'ok', lastOk: Date.now(), pushed: r.pushed, pulled: r.pulled });
       } catch (e) {
         const k = e instanceof AuthError ? (e.kind === 'offline' ? 'offline' : e.kind === 'denied' ? 'auth' : 'error') : 'error';

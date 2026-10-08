@@ -107,3 +107,13 @@ describe('csv', () => {
     expect(toCsv([['a', 1], ['b', 2]])).toBe('﻿a,1\r\nb,2\r\n');
   });
 });
+
+describe('season follows the nights', () => {
+  it('stretches to a later night added after the phone was set up', async () => {
+    const { extendSeason, seedIfEmpty } = await import('./seed');
+    await seedIfEmpty();
+    await db.events.put({ id: 'ev-2026-10-25', date: '2026-10-25', name: 'x', createdAt: 1, updatedAt: 1 });
+    await extendSeason();
+    expect(((await db.settings.get('season'))!.value as { to: string }).to).toBe('2026-10-25');
+  });
+});
