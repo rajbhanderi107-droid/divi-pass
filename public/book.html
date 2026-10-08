@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0e3a30">
+<title>Divi Garba 2026 — Book your pass</title>
+<style>
+  :root{--bg:#0e3a30;--card:#16503f;--ink:#f6efe2;--mute:#b9cdc2;--sand:#e9cfa3;--sand2:#d9b682;--dark:#3b2417;--line:rgba(255,255,255,.12)}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 80% at 50% 0,#17604c,var(--bg));color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 40px}
+  main{max-width:560px;margin:0 auto;padding:16px}
+  h1{font-size:28px;margin:8px 0 2px;line-height:1.15}
+  .sub{color:var(--mute);margin:0 0 16px}
+  .card{background:var(--card);border-radius:22px;padding:16px;margin:0 0 14px;box-shadow:0 10px 24px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.08)}
+  h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:0 0 10px}
+  .nights{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .night{border:0;border-radius:16px;padding:8px 2px;background:#0f4234;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+  .night b{display:block;font-size:18px}
+  .night small{display:block;color:var(--mute);font-size:11px}
+  .night[aria-pressed=true]{background:linear-gradient(#f2dcb4,var(--sand2));color:var(--dark)}
+  .night[aria-pressed=true] small{color:var(--dark)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
+  .row+.row{border-top:1px solid var(--line)}
+  .row small{display:block;color:var(--mute)}
+  .qty{display:flex;align-items:center;gap:12px}
+  .qty button{width:44px;height:44px;border-radius:50%;border:0;font-size:24px;background:#0f4234;color:var(--ink);cursor:pointer}
+  .qty button.plus{background:linear-gradient(#f2dcb4,var(--sand2));color:var(--dark)}
+  .qty span{min-width:22px;text-align:center;font-size:20px;font-weight:700}
+  label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+  input{width:100%;min-height:48px;border-radius:14px;border:0;padding:0 14px;font:inherit;background:#0b2f26;color:var(--ink);box-shadow:inset 0 2px 6px rgba(0,0,0,.4)}
+  .total{display:flex;justify-content:space-between;align-items:baseline;font-size:18px}
+  .total b{font-size:30px;color:var(--sand)}
+  .btn{display:block;width:100%;text-align:center;text-decoration:none;border:0;border-radius:999px;min-height:52px;line-height:52px;font:inherit;font-weight:800;cursor:pointer;margin-top:10px}
+  .wa{background:linear-gradient(#f2dcb4,var(--sand2));color:var(--dark)}
+  .pay{background:#0f4234;color:var(--ink)}
+  .btn[aria-disabled=true]{opacity:.45;pointer-events:none}
+  .upi{font-family:ui-monospace,Menlo,monospace;background:#0b2f26;border-radius:12px;padding:10px 12px;word-break:break-all;margin:6px 0}
+  .note{color:var(--mute);font-size:13px;margin:8px 0 0}
+  .err{color:#ffb4a8;font-size:14px;min-height:20px;margin:6px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Divi Garba 2026 🪔</h1>
+  <p class="sub">11–20 Oct · 8 PM onwards · Master Farm, Sardardham, SP Ring Road, Ahmedabad<br>Cheaper than online, no booking fee, pass on WhatsApp.</p>
+
+  <section class="card">
+    <h2>1 · Pick your night</h2>
+    <div class="nights" id="nights"></div>
+    <p class="note" id="nightNote"></p>
+  </section>
+
+  <section class="card">
+    <h2>2 · How many passes</h2>
+    <div class="row"><div><b>Single pass</b><small id="soloPrice"></small></div>
+      <div class="qty"><button type="button" data-k="solo" data-d="-1" aria-label="Fewer single passes">−</button><span id="q-solo">0</span><button class="plus" type="button" data-k="solo" data-d="1" aria-label="More single passes">+</button></div></div>
+    <div class="row"><div><b>Couple pass</b><small id="couplePrice"></small></div>
+      <div class="qty"><button type="button" data-k="couple" data-d="-1" aria-label="Fewer couple passes">−</button><span id="q-couple">0</span><button class="plus" type="button" data-k="couple" data-d="1" aria-label="More couple passes">+</button></div></div>
+    <p class="note">Couple pass = 1 male + 1 female. Group of 4 or more? Message us for a group price.</p>
+  </section>
+
+  <section class="card">
+    <h2>3 · Your details</h2>
+    <label for="name">Name</label><input id="name" autocomplete="name" placeholder="Full name">
+    <label for="phone">WhatsApp number</label><input id="phone" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile">
+    <p class="err" id="err" role="alert"></p>
+  </section>
+
+  <section class="card">
+    <div class="total"><span>Total to pay</span><b id="total">₹0</b></div>
+    <a class="btn pay" id="payBtn" aria-disabled="true" href="#">Pay with any UPI app</a>
+    <div class="upi" id="upiId">8849728938@kotakbank</div>
+    <p class="note">Pay to <b>BHANDERI RAJ</b>, then tap the button below and send us the payment screenshot. Your pass comes on WhatsApp.</p>
+    <a class="btn wa" id="waBtn" aria-disabled="true" href="#" target="_blank" rel="noopener">Send booking on WhatsApp</a>
+  </section>
+</main>
+<script>
+(function () {
+  var WA = '918849728938', UPI = '8849728938@kotakbank', PAYEE = 'Bhanderi Raj';
+  var SOLO_WEEKDAY = 1350, SOLO_BIG = 1450, COUPLE = 2100;
+  var NIGHTS = [11,12,13,14,15,16,17,18,19,20], DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var BIG = {11:1,16:1,17:1,18:1,19:1,20:1};
+  function dow(d) { return new Date(Date.UTC(2026, 9, d)).getUTCDay(); }
+  var state = { night: 16, solo: 0, couple: 0 };
+  var $ = function (id) { return document.getElementById(id); };
+  var inr = function (n) { return '₹' + n.toLocaleString('en-IN'); };
+  var soloPrice = function () { return BIG[state.night] ? SOLO_BIG : SOLO_WEEKDAY; };
+
+  var nightsEl = $('nights');
+  NIGHTS.forEach(function (d) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'night'; b.dataset.d = d;
+    b.innerHTML = '<small>' + DOW[dow(d)] + '</small><b>' + d + '</b><small>Oct</small>';
+    b.addEventListener('click', function () { state.night = d; render(); });
+    nightsEl.appendChild(b);
+  });
+  document.querySelectorAll('.qty button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.k;
+      state[k] = Math.max(0, Math.min(20, state[k] + Number(b.dataset.d))); render();
+    });
+  });
+  ['name', 'phone'].forEach(function (id) { $(id).addEventListener('input', render); });
+
+  function message() {
+    var parts = []; if (state.solo) parts.push(state.solo + ' solo'); if (state.couple) parts.push(state.couple + ' couple');
+    return 'Name : ' + $('name').value.trim() + '\nPass : ' + parts.join(' + ') + '\nNo : ' + $('phone').value.replace(/\D/g, '').slice(-10) + '\nDate : ' + state.night + ' Oct ' + FULL[dow(state.night)];
+  }
+  function render() {
+    document.querySelectorAll('.night').forEach(function (b) { b.setAttribute('aria-pressed', String(Number(b.dataset.d) === state.night)); });
+    $('nightNote').textContent = BIG[state.night] ? 'Big night — these sell out first.' : 'Weekday night — lowest price.';
+    $('soloPrice').textContent = inr(soloPrice()) + ' each';
+    $('couplePrice').textContent = inr(COUPLE) + ' per couple';
+    $('q-solo').textContent = state.solo; $('q-couple').textContent = state.couple;
+    var total = state.solo * soloPrice() + state.couple * COUPLE;
+    $('total').textContent = inr(total);
+    var name = $('name').value.trim(), phone = $('phone').value.replace(/\D/g, '').slice(-10);
+    var why = !total ? '' : !name ? 'Enter your name' : phone.length !== 10 ? 'Enter a 10-digit mobile number' : '';
+    $('err').textContent = (total && (name || phone)) ? why : '';
+    var ok = total > 0 && !why;
+    var wa = $('waBtn'), pay = $('payBtn');
+    wa.setAttribute('aria-disabled', String(!ok)); pay.setAttribute('aria-disabled', String(!ok));
+    wa.href = ok ? 'https://wa.me/' + WA + '?text=' + encodeURIComponent(message()) : '#';
+    pay.href = ok ? 'upi://pay?pa=' + encodeURIComponent(UPI) + '&pn=' + encodeURIComponent(PAYEE) + '&am=' + total + '&cu=INR&tn=' + encodeURIComponent('Divi Garba ' + state.night + ' Oct') : '#';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

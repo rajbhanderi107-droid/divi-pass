@@ -466,3 +466,18 @@ test("sellers: Divya sells for Raj — Raj's book shows her sale, Dev's does not
   await expect(page.getByText('Divyabuyer Test')).toBeVisible();
   await page.getByRole('group', { name: 'Whose sales' }).getByRole('button', { name: 'Everyone' }).click();
 });
+
+test('booking page: the WhatsApp message is exactly what the app reads, with the right total', async ({ page }) => {
+  await page.goto('/book.html');
+  await page.getByRole('button', { name: /^Fri\s*16/ }).click();
+  await page.getByLabel('More single passes').click(); await page.getByLabel('More single passes').click();
+  await page.getByLabel('More couple passes').click();
+  await page.getByLabel('Name', { exact: true }).fill('Test Buyer'); await page.getByLabel('WhatsApp number').fill('98765 43210');
+  await expect(page.locator('#total')).toHaveText('₹5,000');                      // 2 × 1,450 + 2,100
+  const href = (await page.locator('#waBtn').getAttribute('href'))!;
+  expect(href.startsWith('https://wa.me/918849728938?text=')).toBe(true);
+  expect(decodeURIComponent(href.split('text=')[1]!)).toBe('Name : Test Buyer\nPass : 2 solo + 1 couple\nNo : 9876543210\nDate : 16 Oct Friday');
+  await page.getByRole('button', { name: /^Tue\s*13/ }).click();
+  await expect(page.locator('#total')).toHaveText('₹4,800');                      // weekday: 2 × 1,350 + 2,100
+  expect(await page.locator('#payBtn').getAttribute('href')).toContain('pa=8849728938%40kotakbank&pn=Bhanderi%20Raj&am=4800');
+});

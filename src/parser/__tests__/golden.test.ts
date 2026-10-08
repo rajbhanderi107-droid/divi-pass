@@ -160,3 +160,11 @@ describe('structure', () => {
   it('never throws on garbage', () =>
     fc.assert(fc.property(fc.string(), (s) => { parse(s, opt); })));
 });
+
+describe('booking page message', () => {
+  it('reads the WhatsApp text the public booking page sends', () => {
+    const d = parse('Name : Test Buyer\nPass : 2 solo + 1 couple\nNo : 9876543210\nDate : 16 Oct Friday', { today: '2026-10-08', season: { from: '2026-10-11', to: '2026-10-20' }, prices: { solo: 1450, couple: 2100 } });
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ kind: 'sale', name: 'Test Buyer', phone: '+919876543210', eventDate: '2026-10-16', lines: [{ kind: 'solo', qty: 2 }, { kind: 'couple', qty: 1 }], warnings: [] });
+  });
+});
