@@ -101,3 +101,17 @@ describe('two phones + the cloud', () => {
     expect(await db.sales.count()).toBe(before); expect(r.pulled).toBe(0);
   });
 });
+
+describe('cloud prices beat a new phone', () => {
+  it("a phone set up after the prices were changed in the cloud takes the cloud's prices, not its factory defaults", async () => {
+    const srv = fakeServer();
+    const A = await device(); on(A);
+    await db.passTypes.update('pt-solo', { price: 1350, listPrice: 1500, updatedAt: Date.now() });
+    await syncOnce(srv.send);
+    const B = await device(); on(B);                 // fresh phone: seeds ₹650 just now
+    await syncOnce(srv.send);
+    expect((await db.passTypes.get('pt-solo'))!.price).toBe(1350);
+    on(A); await syncOnce(srv.send);
+    expect((await db.passTypes.get('pt-solo'))!.price).toBe(1350);
+  });
+});
